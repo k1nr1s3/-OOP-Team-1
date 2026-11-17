@@ -50,7 +50,7 @@ public class Main {
             System.out.println("3. Quản lý sản phẩm");
             System.out.println("4. Quản lý khách hàng");
             System.out.println("5. Quản lý khuyến mãi");
-            System.out.println("6. Quản lý nhân viên (chấm công, lương)");
+            System.out.println("6. Quản lý nhân viên");
             System.out.println("7. Quản lý kho nguyên liệu");
             System.out.println("8. Lưu tất cả dữ liệu");
             System.out.println("0. Thoát");
@@ -630,7 +630,7 @@ public class Main {
     private static void themNhanVien() {
         System.out.println("Loại: 1. Thu ngân  2. Pha chế  3. Quản lý");
         int loai = CauHinh.nhapSoNguyen("Chọn: ");
-        String ma = CauHinh.nhapChuoi("Mã nhân viên: ");
+        String ma = dsNV.maMoiTuDong();
         String ten = CauHinh.nhapChuoi("Họ tên: ");
         LocalDate ns = CauHinh.nhapNgay("Ngày sinh (dd/MM/yyyy): ", null);
         String gt = CauHinh.nhapChuoi("Giới tính (Nam/Nữ): ");

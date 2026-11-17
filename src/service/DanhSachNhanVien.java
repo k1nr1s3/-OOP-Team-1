@@ -38,6 +38,17 @@ import java.util.stream.Collectors;
 public class DanhSachNhanVien implements IQuanLy<NhanVien>, IFile {
 
     private final List<NhanVien> dsNV = new ArrayList<>();
+    
+    public String maMoiTuDong() {
+        int soLonNhat = 0;
+        for (NhanVien nv : dsNV) {
+            String ma = nv.getMaNV();
+            if (ma.matches("NV\\d+")) {
+                soLonNhat = Math.max(soLonNhat, Integer.parseInt(ma.substring(2)));
+            }
+        }
+        return String.format("NV%02d", soLonNhat + 1);
+    }
 
     // ===================== Quản lý danh sách =====================
 
