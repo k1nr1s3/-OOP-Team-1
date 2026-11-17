@@ -50,9 +50,22 @@ public class NhaCungCap {
         this.diaChi = diaChi;
     }
 
+    // Chi can nhap so (vd: 1, 01) -> tu dong thanh NCC01
+    public static String chuanHoaMaNCC(String input) {
+        String s = input == null ? "" : input.trim().toUpperCase();
+        if (s.startsWith("NCC")) {
+            s = s.substring(3).trim();
+        }
+        try {
+            return String.format("NCC%02d", Integer.parseInt(s));
+        } catch (NumberFormatException e) {
+            return "NCC" + s;
+        }
+    }
+
     public void nhap(Scanner sc) {
-        System.out.print("Nhap ma nha cung cap: ");
-        this.maNCC = sc.nextLine().trim();
+        System.out.print("Nhap ma nha cung cap (chi nhap so, vd 01): ");
+        this.maNCC = chuanHoaMaNCC(sc.nextLine());
         System.out.print("Nhap ten nha cung cap: ");
         this.tenNCC = sc.nextLine().trim();
         System.out.print("Nhap so dien thoai: ");

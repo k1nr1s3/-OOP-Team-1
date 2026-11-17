@@ -86,14 +86,12 @@ public class PhieuNhapKho {
     }
 
     public void nhap(Scanner sc) {
-        System.out.print("Nhap ma phieu nhap: ");
-        this.maPhieu = sc.nextLine().trim();
         System.out.print("Nhap ngay nhap (dd/MM/yyyy): ");
         this.ngayNhap = sc.nextLine().trim();
         System.out.print("Nhap ma nhan vien phu trach: ");
         this.maNV = sc.nextLine().trim();
-        System.out.print("Nhap ma nha cung cap: ");
-        this.maNCC = sc.nextLine().trim();
+        System.out.print("Nhap ma nha cung cap (chi nhap so, vd 01): ");
+        this.maNCC = NhaCungCap.chuanHoaMaNCC(sc.nextLine());
         System.out.print("Nhap ma nguyen lieu: ");
         this.maNL = sc.nextLine().trim();
         System.out.print("Nhap so luong nhap: ");

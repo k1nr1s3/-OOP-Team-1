@@ -33,6 +33,33 @@ public class DanhSachNguyenLieu implements IFile {
         return dsPhieuNhap;
     }
 
+    private static int laySo(String ma, String tienTo) {
+        if (ma == null || !ma.toUpperCase().startsWith(tienTo)) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(ma.substring(tienTo.length()).trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    public String taoMaNL() {
+        int max = 0;
+        for (NguyenLieu nl : dsNguyenLieu) {
+            max = Math.max(max, laySo(nl.getMaNL(), "NL"));
+        }
+        return String.format("NL%02d", max + 1);
+    }
+
+    public String taoMaPhieu() {
+        int max = 0;
+        for (PhieuNhapKho pn : dsPhieuNhap) {
+            max = Math.max(max, laySo(pn.getMaPhieu(), "PN"));
+        }
+        return String.format("PN%02d", max + 1);
+    }
+
     public boolean themNguyenLieu(NguyenLieu nl) {
         if (nl == null || timTheoMa(nl.getMaNL()) != null) {
             return false;
@@ -316,6 +343,8 @@ public class DanhSachNguyenLieu implements IFile {
                 case 1: hienThiDanhSach(); break;
                 case 2:
                     NguyenLieu nlMoi = new NguyenLieu();
+                    nlMoi.setMaNL(taoMaNL());
+                    System.out.println("Ma nguyen lieu tu dong: " + nlMoi.getMaNL());
                     nlMoi.nhap(sc);
                     System.out.println(themNguyenLieu(nlMoi) ? "Them thanh cong!" : "Ma NL da ton tai!");
                     break;
@@ -333,6 +362,8 @@ public class DanhSachNguyenLieu implements IFile {
                     break;
                 case 4:
                     PhieuNhapKho pn = new PhieuNhapKho();
+                    pn.setMaPhieu(taoMaPhieu());
+                    System.out.println("Ma phieu nhap tu dong: " + pn.getMaPhieu());
                     pn.nhap(sc);
                     if (lapPhieuNhapKho(pn)) System.out.printf(Locale.US, "Nhap kho thanh cong! Thanh tien: %.0f VND%n", pn.tinhThanhTien());
                     break;
