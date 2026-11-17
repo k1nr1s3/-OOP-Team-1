@@ -1,0 +1,16 @@
+# DANH SACH NGUYEN LIEU (maNL;tenNL;donViTinh;soLuongTon;mucToiThieu;donGiaNhap;maNCC)
+NL01;Ca phe hat Arabica;kg;15.00;5.00;250000;NCC01
+NL02;Ca phe hat Robusta;kg;4.00;5.00;180000;NCC01
+NL03;Sua tuoi thanh trung;lit;20.00;10.00;35000;NCC02
+NL04;Sua dac Ngon;hop;6.00;8.00;28000;NCC02
+NL05;Tra den Oolong;kg;0.00;3.00;220000;NCC03
+NL06;Tran chau den;kg;12.50;5.00;65000;NCC03
+NL07;Duong trang tinh luyen;kg;25.00;10.00;22000;NCC02
+# DANH SACH NHA CUNG CAP (NCC|maNCC;tenNCC;soDienThoai;diaChi)
+NCC|NCC01;Cong ty Ca Phe Cao Nguyen;0901234567;Buon Ma Thuot, Dak Lak
+NCC|NCC02;Cong ty Thuc Pham Viet;0912345678;Quan 1, TP.HCM
+NCC|NCC03;Nha Cung Cap Tra Phuoc Lac;0987654321;Bao Loc, Lam Dong
+# DANH SACH PHIEU NHAP KHO (PN|maPhieu;ngayNhap;maNV;maNCC;maNL;soLuongNhap;donGiaNhap)
+PN|PN01;01/10/2026;NV01;NCC01;NL01;10.00;250000
+PN|PN02;05/10/2026;NV01;NCC02;NL03;20.00;35000
+PN|PN03;10/10/2026;NV02;NCC03;NL06;12.50;65000

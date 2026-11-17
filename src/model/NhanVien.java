@@ -1,0 +1,332 @@
+package model;
+
+import java.text.NumberFormat;
+import java.time.Duration;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
+
+
+public abstract class NhanVien {
+
+    // hằng số ví dụ để sau này thay bằng file cấu hình //
+    public static final int NGAY_CONG_CHUAN = 26;
+    public static final double GIO_CHUAN_MOI_NGAY = 8.0;
+    public static final double HE_SO_LAM_THEM = 1.5;
+    public static final double TY_LE_BAO_HIEM = 0.105;
+    public static final DateTimeFormatter DINH_DANG_NGAY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    protected String maNV;
+    protected String hoTen;
+    protected LocalDate ngaySinh;
+    protected String gioiTinh;     
+    protected String soDienThoai;
+    protected String diaChi;
+    protected LocalDate ngayVaoLam;
+    protected double luongCoBan; 
+
+    // Bảng chấm công: ngày -> số giờ làm thực tế
+    private final Map<LocalDate, Double> bangChamCong = new TreeMap<>();
+
+    protected NhanVien(String maNV, String hoTen, LocalDate ngaySinh, String gioiTinh,
+                       String soDienThoai, String diaChi, LocalDate ngayVaoLam, double luongCoBan) {
+        setMaNV(maNV);
+        setHoTen(hoTen);
+        setNgaySinh(ngaySinh);
+        setGioiTinh(gioiTinh);
+        setSoDienThoai(soDienThoai);
+        setDiaChi(diaChi);
+        setNgayVaoLam(ngayVaoLam);
+        setLuongCoBan(luongCoBan);
+    }
+
+
+    // Tên vai trò hiển thị, ví dụ "Thu ngân"
+    public abstract String getVaiTro();
+
+    // thưởng + phụ cấp thêm nếu có  
+    public abstract double tinhThuongPhuCap(int thang, int nam);
+
+    // Mã loại dùng khi ghi file: TN, PC, QL
+    protected abstract String maLoai();
+
+    // Các trường riêng của lớp con
+    protected abstract String chuoiRieng();
+
+    // Chấm công
+
+    // Chấm công theo số giờ làm. Trả về false nếu dữ liệu không hợp lệ hoặc ngày đó đã chấm.
+    public boolean chamCong(LocalDate ngay, double soGio) {
+        if (!hopLeChamCong(ngay, soGio) || bangChamCong.containsKey(ngay)) return false;
+        bangChamCong.put(ngay, soGio);
+        return true;
+    }
+
+    // Chấm công theo giờ vào - giờ ra (số giờ = ra - vào).
+    public boolean chamCong(LocalDate ngay, LocalTime gioVao, LocalTime gioRa) {
+        if (gioVao == null || gioRa == null || !gioRa.isAfter(gioVao)) return false;
+        double soGio = Duration.between(gioVao, gioRa).toMinutes() / 60.0;
+        return chamCong(ngay, soGio);
+    }
+
+    // sửa bản chấm công ( false nếu chưa có hoặc k hợp lệ)
+    public boolean suaChamCong(LocalDate ngay, double soGio) {
+        if (!hopLeChamCong(ngay, soGio) || !bangChamCong.containsKey(ngay)) return false;
+        bangChamCong.put(ngay, soGio);
+        return true;
+    }
+
+    public boolean xoaChamCong(LocalDate ngay) {
+        return bangChamCong.remove(ngay) != null;
+    }
+
+    private boolean hopLeChamCong(LocalDate ngay, double soGio) {
+        return ngay != null
+                && !ngay.isBefore(ngayVaoLam)
+                && !ngay.isAfter(LocalDate.now())
+                && soGio > 0 && soGio <= 24;
+    }
+
+    //Số ngày có đi làm trong tháng (mỗi bản ghi tính 1 ngày)
+    public int tinhSoNgayDiLam(int thang, int nam) {
+        YearMonth ym = kiemTraKyLuong(thang, nam);
+        int dem = 0;
+        for (LocalDate ngay : bangChamCong.keySet()) {
+            if (YearMonth.from(ngay).equals(ym)) dem++;
+        }
+        return dem;
+    }
+
+    // Số ngày công quy đổi (làm 4h = 0,5 công; từ 8h trở lên = 1 công).
+    public double tinhSoNgayCong(int thang, int nam) {
+        YearMonth ym = kiemTraKyLuong(thang, nam);
+        double tong = 0;
+        for (Map.Entry<LocalDate, Double> e : bangChamCong.entrySet()) {
+            if (YearMonth.from(e.getKey()).equals(ym)) {
+                tong += Math.min(e.getValue(), GIO_CHUAN_MOI_NGAY) / GIO_CHUAN_MOI_NGAY;
+            }
+        }
+        return tong;
+    }
+
+    // giờ làm thêm ( dư ra hơn 8h = làm thêm )
+    public double tinhGioLamThem(int thang, int nam) {
+        YearMonth ym = kiemTraKyLuong(thang, nam);
+        double tong = 0;
+        for (Map.Entry<LocalDate, Double> e : bangChamCong.entrySet()) {
+            if (YearMonth.from(e.getKey()).equals(ym)) {
+                tong += Math.max(0, e.getValue() - GIO_CHUAN_MOI_NGAY);
+            }
+        }
+        return tong;
+    }
+
+    public Map<LocalDate, Double> getBangChamCong() {
+        return Collections.unmodifiableMap(bangChamCong);
+    }
+
+    // Tính lương 
+
+    public double tinhLuongTheoCong(int thang, int nam) {
+        return luongCoBan / NGAY_CONG_CHUAN * tinhSoNgayCong(thang, nam);
+    }
+
+    public double tinhTienLamThem(int thang, int nam) {
+        double luongMotGio = luongCoBan / NGAY_CONG_CHUAN / GIO_CHUAN_MOI_NGAY;
+        return luongMotGio * HE_SO_LAM_THEM * tinhGioLamThem(thang, nam);
+    }
+
+    public double tinhBaoHiem() {
+        return luongCoBan * TY_LE_BAO_HIEM;
+    }
+
+    // lương 1 tháng
+    public final double tinhLuong(int thang, int nam) {
+        if (tinhSoNgayDiLam(thang, nam) == 0) return 0;
+        double luong = tinhLuongTheoCong(thang, nam)
+                + tinhTienLamThem(thang, nam)
+                + tinhThuongPhuCap(thang, nam)
+                - tinhBaoHiem();
+        return Math.max(0, luong);
+    }
+
+    // này hàm để in ra phiếu lương //
+    public String phieuLuong(int thang, int nam) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("===== PHIẾU LƯƠNG THÁNG %02d/%d =====%n", thang, nam));
+        sb.append(String.format("Mã NV            : %s%n", maNV));
+        sb.append(String.format("Họ tên           : %s (%s)%n", hoTen, getVaiTro()));
+        sb.append(String.format("Lương cơ bản     : %s%n", dinhDangTien(luongCoBan)));
+        sb.append(String.format("Số ngày đi làm   : %d%n", tinhSoNgayDiLam(thang, nam)));
+        sb.append(String.format("Số ngày công     : %.2f / %d%n", tinhSoNgayCong(thang, nam), NGAY_CONG_CHUAN));
+        sb.append(String.format("Giờ làm thêm     : %.2f%n", tinhGioLamThem(thang, nam)));
+        sb.append(String.format("Lương theo công  : %s%n", dinhDangTien(tinhLuongTheoCong(thang, nam))));
+        sb.append(String.format("Tiền làm thêm    : %s%n", dinhDangTien(tinhTienLamThem(thang, nam))));
+        sb.append(String.format("Thưởng/Phụ cấp   : %s%n", dinhDangTien(tinhThuongPhuCap(thang, nam))));
+        sb.append(String.format("Bảo hiểm (-)     : %s%n", dinhDangTien(tinhBaoHiem())));
+        sb.append(String.format("THỰC LĨNH        : %s%n", dinhDangTien(tinhLuong(thang, nam))));
+        return sb.toString();
+    }
+
+    //** đọc - ghi file 
+
+    // định dạng 1 dòng dữ liệu để lưu 
+    public final String toFileString() {
+        return String.join("|",
+                maLoai(), maNV, hoTen, ngaySinh.toString(), gioiTinh, soDienThoai, diaChi,
+                ngayVaoLam.toString(), String.valueOf(luongCoBan),
+                chuoiRieng(), chuoiChamCong());
+    }
+
+    // định dạng chầm công theo chuỗi để lưu file 
+    protected final String chuoiChamCong() {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<LocalDate, Double> e : bangChamCong.entrySet()) {
+            if (sb.length() > 0) sb.append(',');
+            sb.append(e.getKey()).append(':').append(e.getValue());
+        }
+        return sb.toString();
+    }
+
+    /** Nạp bảng chấm công từ chuỗi đọc file (không kiểm tra lại ngày hiện tại). */
+    protected final void napChamCong(String chuoi) {
+        bangChamCong.clear();
+        if (chuoi == null || chuoi.isBlank()) return;
+        for (String muc : chuoi.split(",")) {
+            String[] kv = muc.trim().split(":", -1);
+            if (kv.length != 2) {
+                throw new IllegalArgumentException("Bản ghi chấm công không hợp lệ: " + muc);
+            }
+            LocalDate ngay;
+            double soGio;
+            try {
+                ngay = LocalDate.parse(kv[0].trim());
+                soGio = Double.parseDouble(kv[1].trim());
+            } catch (RuntimeException e) {
+                throw new IllegalArgumentException("Bản ghi chấm công không hợp lệ: " + muc, e);
+            }
+            if (!hopLeChamCong(ngay, soGio) || bangChamCong.containsKey(ngay)) {
+                throw new IllegalArgumentException("Bản ghi chấm công không hợp lệ hoặc trùng ngày: " + muc);
+            }
+            bangChamCong.put(ngay, soGio);
+        }
+    }
+
+    protected static void kiemTraSoTruong(String[] f, int toiThieu) {
+        if (f.length < toiThieu) {
+            throw new IllegalArgumentException("Dòng dữ liệu thiếu trường (cần ít nhất " + toiThieu + ")");
+        }
+    }
+
+    protected static String truongTai(String[] f, int viTri) {
+        return viTri < f.length ? f[viTri] : "";
+    }
+
+    // hàm get với set
+
+    public String getMaNV() { return maNV; }
+    public String getHoTen() { return hoTen; }
+    public LocalDate getNgaySinh() { return ngaySinh; }
+    public String getGioiTinh() { return gioiTinh; }
+    public String getSoDienThoai() { return soDienThoai; }
+    public String getDiaChi() { return diaChi; }
+    public LocalDate getNgayVaoLam() { return ngayVaoLam; }
+    public double getLuongCoBan() { return luongCoBan; }
+
+    public final void setMaNV(String maNV) {
+        String s = lamSach(maNV);
+        if (s.isEmpty()) throw new IllegalArgumentException("Mã nhân viên không được để trống");
+        this.maNV = s.toUpperCase();
+    }
+
+    public final void setHoTen(String hoTen) {
+        String s = lamSach(hoTen);
+        if (s.isEmpty()) throw new IllegalArgumentException("Họ tên không được để trống");
+        this.hoTen = s;
+    }
+
+    public final void setNgaySinh(LocalDate ngaySinh) {
+        if (ngaySinh == null || ngaySinh.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Ngày sinh không hợp lệ");
+        }
+        this.ngaySinh = ngaySinh;
+    }
+
+    public final void setGioiTinh(String gioiTinh) {
+        String s = lamSach(gioiTinh).toLowerCase();
+        if (s.equals("nam")) this.gioiTinh = "Nam";
+        else if (s.equals("nữ") || s.equals("nu")) this.gioiTinh = "Nữ";
+        else throw new IllegalArgumentException("Giới tính phải là Nam hoặc Nữ");
+    }
+
+    public final void setSoDienThoai(String soDienThoai) {
+        String s = lamSach(soDienThoai);
+        if (!s.isEmpty() && !s.matches("0\\d{9}")) {
+            throw new IllegalArgumentException("Số điện thoại phải gồm 10 chữ số, bắt đầu bằng 0");
+        }
+        this.soDienThoai = s;
+    }
+
+    public final void setDiaChi(String diaChi) {
+        this.diaChi = lamSach(diaChi);
+    }
+
+    public final void setNgayVaoLam(LocalDate ngayVaoLam) {
+        if (ngayVaoLam == null || ngayVaoLam.isAfter(LocalDate.now())
+                || (ngaySinh != null && !ngayVaoLam.isAfter(ngaySinh))) {
+            throw new IllegalArgumentException("Ngày vào làm phải sau ngày sinh và không được ở tương lai");
+        }
+        this.ngayVaoLam = ngayVaoLam;
+    }
+
+    public final void setLuongCoBan(double luongCoBan) {
+        if (!Double.isFinite(luongCoBan) || luongCoBan < 0) {
+            throw new IllegalArgumentException("Lương cơ bản phải là số hữu hạn, không âm");
+        }
+        this.luongCoBan = luongCoBan;
+    }
+
+    protected static YearMonth kiemTraKyLuong(int thang, int nam) {
+        try {
+            return YearMonth.of(nam, thang);
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException("Tháng/năm không hợp lệ: " + thang + "/" + nam, e);
+        }
+    }
+
+    //tool
+    protected static String lamSach(String s) {
+        return s == null ? "" : s.replace('|', '/').replaceAll("[\\r\\n]+", " ").trim();
+    }
+
+    public static String dinhDangTien(double soTien) {
+        NumberFormat nf = NumberFormat.getNumberInstance(Locale.forLanguageTag("vi-VN"));
+        nf.setMaximumFractionDigits(0);
+        return nf.format(Math.round(soTien)) + " VND";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof NhanVien)) return false;
+        return maNV.equals(((NhanVien) o).maNV);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(maNV);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%-6s | %-22s | %-9s | %-4s | Vào làm: %s | Lương CB: %s",
+                maNV, hoTen, getVaiTro(), gioiTinh, ngayVaoLam.format(DINH_DANG_NGAY), dinhDangTien(luongCoBan));
+    }
+}

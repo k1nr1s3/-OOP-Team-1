@@ -1,0 +1,9 @@
+# LOAI|maSP|tenSP|donGia|truongRieng  (DOAN: laDoChay, THUCUONG: size, COMBO: cac ma SP cach nhau bang ;)
+DOAN|SP01|Gà rán 2 miếng|45000|false
+DOAN|SP02|Burger bò phô mai|55000|false
+DOAN|SP03|Khoai tây chiên|25000|true
+THUCUONG|SP04|Coca-Cola ly lớn|20000|L
+THUCUONG|SP05|Trà đào cam sả|35000|M
+THUCUONG|SP06|Trà sữa trân châu|40000|L
+COMBO|SP07|Combo Gà + Khoai + Nước|79000|SP01;SP03;SP04
+COMBO|SP08|Combo Burger + Nước|69000|SP02;SP04
