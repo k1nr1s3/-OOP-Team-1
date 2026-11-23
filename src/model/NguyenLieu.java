@@ -11,6 +11,7 @@ public class NguyenLieu {
     private double mucToiThieu;
     private double donGiaNhap;
     private String maNCC;
+    private boolean khoa;   // true = dang khoa: cac mon co nguyen lieu nay k cho order
 
     public NguyenLieu() {
     }
@@ -82,6 +83,14 @@ public class NguyenLieu {
         this.maNCC = maNCC;
     }
 
+    public boolean isKhoa() {
+        return khoa;
+    }
+
+    public void setKhoa(boolean khoa) {
+        this.khoa = khoa;
+    }
+
     public boolean isHetHang() {
         return soLuongTon <= 0;
     }
@@ -136,13 +145,14 @@ public class NguyenLieu {
     }
 
     public void xuat() {
-        System.out.printf("| %-6s | %-22s | %-8s | %10.2f | %10.2f | %12.0f | %-8s | %-13s |%n",
-                maNL, tenNL, donViTinh, soLuongTon, mucToiThieu, donGiaNhap, maNCC, getTrangThaiTonKho());
+        System.out.printf("| %-6s | %-22s | %-8s | %10.2f | %10.2f | %12.0f | %-8s | %-13s | %-5s |%n",
+                maNL, tenNL, donViTinh, soLuongTon, mucToiThieu, donGiaNhap, maNCC, getTrangThaiTonKho(),
+                khoa ? "KHOA" : "-");
     }
 
     public String toFileString() {
-        return String.format(Locale.US, "%s;%s;%s;%.2f;%.2f;%.0f;%s",
-                maNL, tenNL, donViTinh, soLuongTon, mucToiThieu, donGiaNhap, maNCC);
+        return String.format(Locale.US, "%s;%s;%s;%.2f;%.2f;%.0f;%s;%b",
+                maNL, tenNL, donViTinh, soLuongTon, mucToiThieu, donGiaNhap, maNCC, khoa);
     }
 
     public static NguyenLieu fromFileString(String line) {
@@ -158,7 +168,10 @@ public class NguyenLieu {
             double mucToiThieu = Double.parseDouble(parts[4].trim().replace(",", "."));
             double donGiaNhap = Double.parseDouble(parts[5].trim().replace(",", "."));
             String maNCC = parts[6].trim();
-            return new NguyenLieu(maNL, tenNL, donViTinh, soLuongTon, mucToiThieu, donGiaNhap, maNCC);
+            NguyenLieu nl = new NguyenLieu(maNL, tenNL, donViTinh, soLuongTon, mucToiThieu, donGiaNhap, maNCC);
+            // truong thu 8 (khoa) co hay k cung duoc: file cu chi co 7 truong
+            nl.khoa = parts.length >= 8 && Boolean.parseBoolean(parts[7].trim());
+            return nl;
         } catch (NumberFormatException e) {
             return null;
         }
@@ -166,8 +179,8 @@ public class NguyenLieu {
 
     @Override
     public String toString() {
-        return String.format("NguyenLieu[maNL=%s, tenNL=%s, ton=%.2f %s, trangThai=%s]",
-                maNL, tenNL, soLuongTon, donViTinh, getTrangThaiTonKho());
+        return String.format("NguyenLieu[maNL=%s, tenNL=%s, ton=%.2f %s, trangThai=%s%s]",
+                maNL, tenNL, soLuongTon, donViTinh, getTrangThaiTonKho(), khoa ? ", KHOA" : "");
     }
 }
 

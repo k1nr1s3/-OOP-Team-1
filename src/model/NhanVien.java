@@ -4,6 +4,7 @@ import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.DateTimeException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -34,6 +35,13 @@ public abstract class NhanVien {
 
     // Bảng chấm công: ngày -> số giờ làm thực tế
     private final Map<LocalDate, Double> bangChamCong = new TreeMap<>();
+    // Giờ vào / ra của những ngày chấm bằng check-in / check-out: ngày -> {giờ vào, giờ ra}
+    private final Map<LocalDate, LocalTime[]> gioVaoRa = new TreeMap<>();
+    // Ca đang làm: đã check-in nhưng chưa check-out (ngày -> giờ vào). Tối đa 1 ca mở.
+    private final Map<LocalDate, LocalTime> caDangMo = new TreeMap<>();
+
+    private static final DateTimeFormatter DINH_DANG_GIO_FILE = DateTimeFormatter.ofPattern("HHmmss");
+    public static final DateTimeFormatter DINH_DANG_GIO = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     protected NhanVien(String maNV, String hoTen, LocalDate ngaySinh, String gioiTinh,
                        String soDienThoai, String diaChi, LocalDate ngayVaoLam, double luongCoBan) {
@@ -54,7 +62,7 @@ public abstract class NhanVien {
     // thưởng + phụ cấp thêm nếu có  
     public abstract double tinhThuongPhuCap(int thang, int nam);
 
-    // Mã loại dùng khi ghi file: TN, PC, QL
+    // Mã loại dùng khi ghi file: TN, NB (cũ PC), QL
     protected abstract String maLoai();
 
     // Các trường riêng của lớp con
@@ -73,18 +81,81 @@ public abstract class NhanVien {
     public boolean chamCong(LocalDate ngay, LocalTime gioVao, LocalTime gioRa) {
         if (gioVao == null || gioRa == null || !gioRa.isAfter(gioVao)) return false;
         double soGio = Duration.between(gioVao, gioRa).toMinutes() / 60.0;
-        return chamCong(ngay, soGio);
+        if (!chamCong(ngay, soGio)) return false;
+        gioVaoRa.put(ngay, new LocalTime[]{gioVao, gioRa});
+        return true;
+    }
+
+    // Check-in: ghi nhận giờ vào ca. Lỗi (đã check-in, hôm nay đã chấm đủ...) thì ném IllegalStateException / IllegalArgumentException.
+    public void checkIn(LocalDateTime luc) {
+        if (luc == null) throw new IllegalArgumentException("Thời điểm check-in không hợp lệ");
+        LocalDate ngay = luc.toLocalDate();
+        if (!caDangMo.isEmpty()) {
+            Map.Entry<LocalDate, LocalTime> mo = caDangMo.entrySet().iterator().next();
+            throw new IllegalStateException("Bạn đã check-in lúc " + mo.getValue().format(DINH_DANG_GIO)
+                    + " ngày " + mo.getKey().format(DINH_DANG_NGAY) + " mà chưa check-out");
+        }
+        if (ngay.isBefore(ngayVaoLam)) {
+            throw new IllegalArgumentException("Ngày chấm công k được trước ngày vào làm");
+        }
+        if (bangChamCong.containsKey(ngay)) {
+            throw new IllegalStateException("Ngày " + ngay.format(DINH_DANG_NGAY) + " đã chấm công ("
+                    + String.format("%.2f", bangChamCong.get(ngay)) + " giờ)");
+        }
+        caDangMo.put(ngay, luc.toLocalTime().withNano(0));
+    }
+
+    // Check-out: ghi nhận giờ ra, tự tính số giờ làm = ra - vào và lưu vào bảng chấm công. Trả về số giờ làm.
+    public double checkOut(LocalDateTime luc) {
+        if (caDangMo.isEmpty()) {
+            throw new IllegalStateException("Bạn chưa check-in nên k check-out được");
+        }
+        Map.Entry<LocalDate, LocalTime> mo = caDangMo.entrySet().iterator().next();
+        LocalDateTime vao = LocalDateTime.of(mo.getKey(), mo.getValue());
+        if (luc == null || !luc.isAfter(vao)) {
+            throw new IllegalStateException("Giờ ra phải sau giờ vào (" + mo.getValue().format(DINH_DANG_GIO) + ")");
+        }
+        double soGio = Math.round(Duration.between(vao, luc).getSeconds() / 3600.0 * 10000) / 10000.0;
+        if (soGio > 24) {
+            throw new IllegalStateException("Quá 24 giờ kể từ lúc check-in, hãy nhờ quản lý sửa / xoá chấm công");
+        }
+        bangChamCong.put(mo.getKey(), Math.max(soGio, 0.0001));
+        gioVaoRa.put(mo.getKey(), new LocalTime[]{mo.getValue(), luc.toLocalTime().withNano(0)});
+        caDangMo.remove(mo.getKey());
+        return bangChamCong.get(mo.getKey());
+    }
+
+    // thời điểm check-in của ca đang mở (null nếu k có)
+    public LocalDateTime getCheckInDangMo() {
+        if (caDangMo.isEmpty()) return null;
+        Map.Entry<LocalDate, LocalTime> mo = caDangMo.entrySet().iterator().next();
+        return LocalDateTime.of(mo.getKey(), mo.getValue());
+    }
+
+    // giờ vào / giờ ra của 1 ngày (null nếu ngày đó k chấm bằng check-in / check-out)
+    public LocalTime getGioVao(LocalDate ngay) {
+        LocalTime[] v = gioVaoRa.get(ngay);
+        return v == null ? null : v[0];
+    }
+
+    public LocalTime getGioRa(LocalDate ngay) {
+        LocalTime[] v = gioVaoRa.get(ngay);
+        return v == null ? null : v[1];
     }
 
     // sửa bản chấm công ( false nếu chưa có hoặc k hợp lệ)
     public boolean suaChamCong(LocalDate ngay, double soGio) {
         if (!hopLeChamCong(ngay, soGio) || !bangChamCong.containsKey(ngay)) return false;
         bangChamCong.put(ngay, soGio);
+        gioVaoRa.remove(ngay);   // số giờ đã sửa tay thì giờ vào / ra cũ k còn đúng
         return true;
     }
 
+    // xoá bản chấm công của ngày đó (kể cả ca đang mở chưa check-out)
     public boolean xoaChamCong(LocalDate ngay) {
-        return bangChamCong.remove(ngay) != null;
+        gioVaoRa.remove(ngay);
+        boolean daCoCaMo = caDangMo.remove(ngay) != null;
+        return bangChamCong.remove(ngay) != null || daCoCaMo;
     }
 
     private boolean hopLeChamCong(LocalDate ngay, double soGio) {
@@ -122,10 +193,18 @@ public abstract class NhanVien {
         double tong = 0;
         for (Map.Entry<LocalDate, Double> e : bangChamCong.entrySet()) {
             if (YearMonth.from(e.getKey()).equals(ym)) {
-                tong += Math.max(0, e.getValue() - GIO_CHUAN_MOI_NGAY);
+                tong += Math.max(0, e.getValue() - gioChuanLamThemTrongNgay());
             }
         }
         return tong;
+    }
+
+    protected double gioChuanLamThemTrongNgay() {
+        return GIO_CHUAN_MOI_NGAY;
+    }
+
+    protected double getHeSoLamThem() {
+        return HE_SO_LAM_THEM;
     }
 
     public Map<LocalDate, Double> getBangChamCong() {
@@ -140,7 +219,7 @@ public abstract class NhanVien {
 
     public double tinhTienLamThem(int thang, int nam) {
         double luongMotGio = luongCoBan / NGAY_CONG_CHUAN / GIO_CHUAN_MOI_NGAY;
-        return luongMotGio * HE_SO_LAM_THEM * tinhGioLamThem(thang, nam);
+        return luongMotGio * getHeSoLamThem() * tinhGioLamThem(thang, nam);
     }
 
     public double tinhBaoHiem() {
@@ -179,18 +258,31 @@ public abstract class NhanVien {
 
     // định dạng 1 dòng dữ liệu để lưu 
     public final String toFileString() {
-        return String.join("|",
+        String dong = String.join("|",
                 maLoai(), maNV, hoTen, ngaySinh.toString(), gioiTinh, soDienThoai, diaChi,
                 ngayVaoLam.toString(), String.valueOf(luongCoBan),
                 chuoiRieng(), chuoiChamCong());
+        String them = chuoiCuoiDong();
+        return them == null ? dong : dong + "|" + them;
     }
+
+    // Trường ghi thêm sau chấm công (lớp con cần thì ghi đè, mặc định không có)
+    protected String chuoiCuoiDong() { return null; }
 
     // định dạng chầm công theo chuỗi để lưu file 
     protected final String chuoiChamCong() {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<LocalDate, Double> e : bangChamCong.entrySet()) {
             if (sb.length() > 0) sb.append(',');
-            sb.append(e.getKey()).append(':').append(e.getValue());
+            sb.append(e.getKey()).append(':').append(java.math.BigDecimal.valueOf(e.getValue()).toPlainString());
+            LocalTime[] v = gioVaoRa.get(e.getKey());
+            if (v != null) {   // ngày:soGio@HHmmss-HHmmss
+                sb.append('@').append(v[0].format(DINH_DANG_GIO_FILE)).append('-').append(v[1].format(DINH_DANG_GIO_FILE));
+            }
+        }
+        for (Map.Entry<LocalDate, LocalTime> e : caDangMo.entrySet()) {   // ca chưa check-out: ngày:0.0@HHmmss-
+            if (sb.length() > 0) sb.append(',');
+            sb.append(e.getKey()).append(":0.0@").append(e.getValue().format(DINH_DANG_GIO_FILE)).append('-');
         }
         return sb.toString();
     }
@@ -198,24 +290,43 @@ public abstract class NhanVien {
     /** Nạp bảng chấm công từ chuỗi đọc file (không kiểm tra lại ngày hiện tại). */
     protected final void napChamCong(String chuoi) {
         bangChamCong.clear();
+        gioVaoRa.clear();
+        caDangMo.clear();
         if (chuoi == null || chuoi.isBlank()) return;
         for (String muc : chuoi.split(",")) {
-            String[] kv = muc.trim().split(":", -1);
-            if (kv.length != 2) {
+            String[] phan = muc.trim().split("@", -1);   // phần sau @ (nếu có) là giờ vào-ra
+            String[] kv = phan[0].split(":", -1);
+            if (kv.length != 2 || phan.length > 2) {
                 throw new IllegalArgumentException("Bản ghi chấm công không hợp lệ: " + muc);
             }
             LocalDate ngay;
             double soGio;
+            LocalTime vao = null;
+            LocalTime ra = null;
             try {
                 ngay = LocalDate.parse(kv[0].trim());
                 soGio = Double.parseDouble(kv[1].trim());
+                if (phan.length == 2) {
+                    String[] vr = phan[1].split("-", -1);
+                    if (vr.length != 2) throw new IllegalArgumentException("giờ vào-ra sai");
+                    vao = LocalTime.parse(vr[0].trim(), DINH_DANG_GIO_FILE);
+                    ra = vr[1].trim().isEmpty() ? null : LocalTime.parse(vr[1].trim(), DINH_DANG_GIO_FILE);
+                }
             } catch (RuntimeException e) {
                 throw new IllegalArgumentException("Bản ghi chấm công không hợp lệ: " + muc, e);
             }
-            if (!hopLeChamCong(ngay, soGio) || bangChamCong.containsKey(ngay)) {
+            if (vao != null && ra == null) {   // ca đang mở (chưa check-out)
+                if (!caDangMo.isEmpty() || bangChamCong.containsKey(ngay) || ngay.isBefore(ngayVaoLam)) {
+                    throw new IllegalArgumentException("Ca đang mở không hợp lệ: " + muc);
+                }
+                caDangMo.put(ngay, vao);
+                continue;
+            }
+            if (!hopLeChamCong(ngay, soGio) || bangChamCong.containsKey(ngay) || caDangMo.containsKey(ngay)) {
                 throw new IllegalArgumentException("Bản ghi chấm công không hợp lệ hoặc trùng ngày: " + muc);
             }
             bangChamCong.put(ngay, soGio);
+            if (vao != null) gioVaoRa.put(ngay, new LocalTime[]{vao, ra});
         }
     }
 
@@ -326,7 +437,7 @@ public abstract class NhanVien {
 
     @Override
     public String toString() {
-        return String.format("%-6s | %-22s | %-9s | %-4s | Vào làm: %s | Lương CB: %s",
+        return String.format("%-6s | %-22s | %-13s | %-4s | Vào làm: %s | Lương CB: %s",
                 maNV, hoTen, getVaiTro(), gioiTinh, ngayVaoLam.format(DINH_DANG_NGAY), dinhDangTien(luongCoBan));
     }
 }

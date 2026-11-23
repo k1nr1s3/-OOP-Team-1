@@ -1,9 +1,9 @@
-# LOAI|maSP|tenSP|donGia|truongRieng  (DOAN: laDoChay, THUCUONG: size, COMBO: cac ma SP cach nhau bang ;)
-DOAN|SP01|Gà rán 2 miếng|45000|false
-DOAN|SP02|Burger bò phô mai|55000|false
-DOAN|SP03|Khoai tây chiên|25000|true
-THUCUONG|SP04|Coca-Cola ly lớn|20000|L
-THUCUONG|SP05|Trà đào cam sả|35000|M
-THUCUONG|SP06|Trà sữa trân châu|40000|L
+# LOAI|maSP|tenSP|donGia|truongRieng|congThuc  (DOAN: laDoChay, THUCUONG: size, COMBO: cac ma SP cach nhau bang ; (lap lai = nhieu phan), congThuc: maNL:lieuLuong,maNL:lieuLuong - combo khong co cong thuc rieng)
+DOAN|SP01|Gà rán 2 miếng|45000|false|NL08:0.25,NL09:0.05,NL14:0.03
+DOAN|SP02|Burger bò phô mai|55000|false|NL10:1,NL11:0.15,NL12:1
+DOAN|SP03|Khoai tây chiên|25000|true|NL13:0.2,NL14:0.03
+THUCUONG|SP04|Coca-Cola ly lớn|20000|L|NL15:0.05
+THUCUONG|SP05|Trà đào cam sả|35000|M|NL16:0.05,NL07:0.02
+THUCUONG|SP06|Trà sữa trân châu|40000|L|NL05:0.02,NL03:0.15,NL06:0.05,NL07:0.02
 COMBO|SP07|Combo Gà + Khoai + Nước|79000|SP01;SP03;SP04
 COMBO|SP08|Combo Burger + Nước|69000|SP02;SP04

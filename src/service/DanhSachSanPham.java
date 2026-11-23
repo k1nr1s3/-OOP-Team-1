@@ -4,7 +4,9 @@ import iface.IFile;
 import iface.IGiamGia;
 import iface.IQuanLy;
 import model.Combo;
+import model.CongThuc;
 import model.DoAn;
+import model.NguyenLieu;
 import model.SanPham;
 import model.ThucUong;
 
@@ -28,6 +30,7 @@ public class DanhSachSanPham implements IQuanLy<SanPham>, IFile {
 
     private SanPham[] ds;
     private int n;
+    private boolean dangDoc = false;   // đang đọc file: chưa nối combo vì thành phần có thể nằm phía sau
 
     // ===================== Constructor =====================
     public DanhSachSanPham() {
@@ -160,6 +163,7 @@ public class DanhSachSanPham implements IQuanLy<SanPham>, IFile {
         }
         moRong();
         ds[n++] = sp;
+        lienKetCombo();
         return true;
     }
 
@@ -203,6 +207,7 @@ public class DanhSachSanPham implements IQuanLy<SanPham>, IFile {
             ds[i] = ds[i + 1];
         }
         ds[--n] = null;
+        lienKetCombo();
         return true;
     }
 
@@ -322,6 +327,108 @@ public class DanhSachSanPham implements IQuanLy<SanPham>, IFile {
         }
     }
 
+    // ===================== Công thức, nguyên liệu & thực đơn =====================
+
+    // has-a: nối mã thành phần của mọi Combo với sản phẩm thật (gọi lại khi thêm / xoá / đọc file)
+    private void lienKetCombo() {
+        if (dangDoc) {
+            return;
+        }
+        for (int i = 0; i < n; i++) {
+            if (ds[i] instanceof Combo) {
+                for (String ma : ((Combo) ds[i]).lienKet(this)) {
+                    System.err.println("Combo " + ds[i].getMaSP() + ": thành phần \"" + ma
+                            + "\" k có trong danh sách hoặc là combo, bỏ qua");
+                }
+            }
+        }
+    }
+
+    // đặt (thêm / sửa) liều lượng 1 nguyên liệu trong công thức món. Combo k có công thức riêng -> false
+    public boolean datLieuLuong(String maSP, String maNL, double lieuLuong, IQuanLy<NguyenLieu> kho) {
+        SanPham sp = timTheoMa(maSP);
+        if (sp == null || sp instanceof Combo || kho.timTheoMa(maNL) == null) {
+            return false;
+        }
+        sp.getCongThuc().datLieuLuong(maNL, lieuLuong);
+        return true;
+    }
+
+    public boolean xoaNguyenLieuKhoiCongThuc(String maSP, String maNL) {
+        SanPham sp = timTheoMa(maSP);
+        return sp != null && !(sp instanceof Combo) && sp.getCongThuc().xoaNguyenLieu(maNL);
+    }
+
+    public boolean xoaCongThuc(String maSP) {
+        SanPham sp = timTheoMa(maSP);
+        if (sp == null || sp instanceof Combo) {
+            return false;
+        }
+        sp.getCongThuc().xoaHet();
+        return true;
+    }
+
+    // các món (kể cả combo) có dùng nguyên liệu này trong công thức
+    public SanPham[] timTheoNguyenLieu(String maNL) {
+        return loc(sp -> sp.getCongThuc().coNguyenLieu(maNL));
+    }
+
+    // in công thức 1 món; combo thì in công thức từng món thành phần rồi tổng
+    public boolean inCongThuc(String maSP, IQuanLy<NguyenLieu> kho) {
+        SanPham sp = timTheoMa(maSP);
+        if (sp == null) {
+            return false;
+        }
+        System.out.println(sp.getTenSP() + " (" + sp.getMaSP() + ") - " + sp.getLoai());
+        if (sp instanceof Combo) {
+            Combo c = (Combo) sp;
+            for (SanPham tp : c.getMonThanhPhan()) {
+                System.out.println("  + " + tp.getTenSP() + " (" + tp.getMaSP() + "): " + tp.getCongThuc().moTa(kho));
+            }
+            System.out.println("  => Tổng công thức combo: " + c.getCongThuc().moTa(kho));
+        } else {
+            System.out.println("  Công thức (1 phần): " + sp.getCongThuc().moTa(kho));
+        }
+        return true;
+    }
+
+    public void inTatCaCongThuc(IQuanLy<NguyenLieu> kho) {
+        for (int i = 0; i < n; i++) {
+            inCongThuc(ds[i].getMaSP(), kho);
+        }
+    }
+
+    // thực đơn cho thu ngân: kèm số phần dự kiến làm được theo tồn kho và trạng thái khoá
+    public void hienThiThucDon(IQuanLy<NguyenLieu> kho) {
+        System.out.println(String.format("%-6s %-10s %-26s %12s  %-10s %s",
+                "Mã", "Loại", "Tên", "Đơn giá", "Có thể làm", "Tình trạng"));
+        int soKhoa = 0;
+        for (int i = 0; i < n; i++) {
+            SanPham sp = ds[i];
+            int coThe = sp.soLuongCoTheTao(kho);
+            String soPhan = coThe == CongThuc.KHONG_GIOI_HAN ? "-" : coThe + " phần";
+            String tinhTrang;
+            java.util.List<NguyenLieu> khoa = sp.nguyenLieuDangKhoa(kho);
+            if (!khoa.isEmpty()) {
+                StringBuilder sb = new StringBuilder("ĐÃ KHOÁ (nguyên liệu: ");
+                for (int k = 0; k < khoa.size(); k++) {
+                    sb.append(k > 0 ? ", " : "").append(khoa.get(k).getTenNL());
+                }
+                tinhTrang = sb.append(")").toString();
+                soKhoa++;
+            } else if (coThe == 0) {
+                tinhTrang = "HẾT NGUYÊN LIỆU";
+            } else if (sp.getCongThuc().isRong()) {
+                tinhTrang = "Chưa có công thức";
+            } else {
+                tinhTrang = "Còn";
+            }
+            System.out.println(String.format("%-6s %-10s %-26s %12s  %-10s %s", sp.getMaSP(), sp.getLoai(),
+                    sp.getTenSP(), IGiamGia.dinhDangTien(sp.getDonGia()), soPhan, tinhTrang));
+        }
+        System.out.println("Tổng: " + n + " sản phẩm" + (soKhoa > 0 ? " (" + soKhoa + " món đã khoá, k order được)" : ""));
+    }
+
     // ===================== Đọc / ghi file =====================
     /**
      * Đọc danh sách từ file (thay thế dữ liệu hiện tại). Dòng trống hoặc bắt đầu bằng '#' bị bỏ qua,
@@ -336,6 +443,7 @@ public class DanhSachSanPham implements IQuanLy<SanPham>, IFile {
         }
         ds = new SanPham[10];
         n = 0;
+        dangDoc = true;
         int soDong = 0;
         for (String dong : Files.readAllLines(path, StandardCharsets.UTF_8)) {
             soDong++;
@@ -351,6 +459,8 @@ public class DanhSachSanPham implements IQuanLy<SanPham>, IFile {
                 System.err.println("Dòng " + soDong + " sai định dạng (" + e.getMessage() + "), bỏ qua");
             }
         }
+        dangDoc = false;
+        lienKetCombo();
         return n;
     }
 
@@ -361,7 +471,7 @@ public class DanhSachSanPham implements IQuanLy<SanPham>, IFile {
             Files.createDirectories(path.getParent());
         }
         List<String> dong = new ArrayList<>();
-        dong.add("# LOAI|maSP|tenSP|donGia|truongRieng  (DOAN: laDoChay, THUCUONG: size, COMBO: cac ma SP cach nhau bang ;)");
+        dong.add("# LOAI|maSP|tenSP|donGia|truongRieng|congThuc  (DOAN: laDoChay, THUCUONG: size, COMBO: cac ma SP cach nhau bang ; (lap lai = nhieu phan), congThuc: maNL:lieuLuong,maNL:lieuLuong - combo khong co cong thuc rieng)");
         for (int i = 0; i < n; i++) {
             dong.add(ds[i].toFileString());
         }

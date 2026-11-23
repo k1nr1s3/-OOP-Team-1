@@ -1,6 +1,7 @@
 package model;
 
 import iface.IGiamGia;
+import iface.IQuanLy;
 
 
 public abstract class SanPham {
@@ -33,12 +34,18 @@ public abstract class SanPham {
         String ten = f[2].trim();
         double gia = Double.parseDouble(f[3].trim());
         String rieng = f.length > 4 ? f[4].trim() : "";
+        SanPham sp;
         switch (f[0].trim().toUpperCase()) {
-            case "DOAN":     return new DoAn(ma, ten, gia, Boolean.parseBoolean(rieng));
-            case "THUCUONG": return new ThucUong(ma, ten, gia, rieng.isEmpty() ? "M" : rieng);
-            case "COMBO":    return new Combo(ma, ten, gia, rieng);
+            case "DOAN":     sp = new DoAn(ma, ten, gia, Boolean.parseBoolean(rieng)); break;
+            case "THUCUONG": sp = new ThucUong(ma, ten, gia, rieng.isEmpty() ? "M" : rieng); break;
+            case "COMBO":    sp = new Combo(ma, ten, gia, rieng); break;
             default: throw new IllegalArgumentException("Loại sản phẩm không hợp lệ: " + f[0]);
         }
+        // trường thứ 6 (nếu có) là công thức; Combo k có công thức riêng (lấy từ các món thành phần)
+        if (f.length > 5 && !(sp instanceof Combo)) {
+            sp.setCongThuc(CongThuc.fromFileString(f[5]));
+        }
+        return sp;
     }
 
     public static String tieuDeBang() {
@@ -48,6 +55,7 @@ public abstract class SanPham {
       protected String maSP;
     protected String tenSP;
     protected double donGia;
+    private CongThuc congThuc = new CongThuc();   // has-a: mỗi sản phẩm có 1 công thức
     protected SanPham(String maSP, String tenSP, double donGia) {
         setMaSP(maSP);
         setTenSP(tenSP);
@@ -67,7 +75,35 @@ public abstract class SanPham {
 
     //Đọc/ghi file
     public final String toFileString() {
-        return maLoai() + "|" + maSP + "|" + tenSP + "|" + Math.round(donGia) + "|" + chuoiRieng();
+        String dong = maLoai() + "|" + maSP + "|" + tenSP + "|" + Math.round(donGia) + "|" + chuoiRieng();
+        String ct = chuoiCongThucFile();
+        return ct.isEmpty() ? dong : dong + "|" + ct;
+    }
+
+    // chuỗi công thức ghi file (Combo ghi đè thành rỗng vì công thức lấy từ món thành phần)
+    protected String chuoiCongThucFile() {
+        return congThuc.toFileString();
+    }
+
+    //Công thức & nguyên liệu
+    public CongThuc getCongThuc() { return congThuc; }
+
+    public void setCongThuc(CongThuc congThuc) {
+        this.congThuc = congThuc == null ? new CongThuc() : congThuc;
+    }
+
+    // số phần dự kiến làm được theo tồn kho (CongThuc.KHONG_GIOI_HAN nếu chưa có công thức)
+    public int soLuongCoTheTao(IQuanLy<NguyenLieu> kho) {
+        return getCongThuc().soLuongToiDaTao(kho);
+    }
+
+    // các nguyên liệu đang bị khoá trong công thức; khác rỗng = món bị khoá, k cho order
+    public java.util.List<NguyenLieu> nguyenLieuDangKhoa(IQuanLy<NguyenLieu> kho) {
+        return getCongThuc().nguyenLieuBiKhoa(kho);
+    }
+
+    public boolean isBiKhoa(IQuanLy<NguyenLieu> kho) {
+        return !nguyenLieuDangKhoa(kho).isEmpty();
     }
 
     public String getMaSP() { return maSP; }

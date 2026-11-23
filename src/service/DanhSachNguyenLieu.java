@@ -1,24 +1,57 @@
 package service;
 
 import iface.IFile;
+import iface.IQuanLy;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Scanner;
 import model.NguyenLieu;
 import model.NhaCungCap;
 import model.PhieuNhapKho;
+import model.PhieuXuatKho;
 import util.FileHelper;
 
-public class DanhSachNguyenLieu implements IFile {
+public class DanhSachNguyenLieu implements IQuanLy<NguyenLieu>, IFile {
     private List<NguyenLieu> dsNguyenLieu;
     private List<NhaCungCap> dsNhaCungCap;
     private List<PhieuNhapKho> dsPhieuNhap;
+    private List<PhieuXuatKho> dsPhieuXuat;
 
     public DanhSachNguyenLieu() {
         this.dsNguyenLieu = new ArrayList<>();
         this.dsNhaCungCap = new ArrayList<>();
         this.dsPhieuNhap = new ArrayList<>();
+        this.dsPhieuXuat = new ArrayList<>();
+    }
+
+    // ===== IQuanLy<NguyenLieu>: để CongThuc / SanPham tra tồn kho qua interface =====
+    @Override
+    public boolean them(NguyenLieu nl) {
+        return themNguyenLieu(nl);
+    }
+
+    @Override
+    public boolean xoa(String ma) {
+        return xoaNguyenLieu(ma);
+    }
+
+    @Override
+    public void hienThi() {
+        hienThiDanhSach();
+    }
+
+    @Override
+    public int soLuong() {
+        return dsNguyenLieu.size();
+    }
+
+    public List<PhieuXuatKho> getDsPhieuXuat() {
+        return dsPhieuXuat;
     }
 
     public List<NguyenLieu> getDsNguyenLieu() {
@@ -41,7 +74,12 @@ public class DanhSachNguyenLieu implements IFile {
         return true;
     }
 
+    @Override
     public NguyenLieu timTheoMa(String maNL) {
+        if (maNL == null) {
+            return null;
+        }
+        maNL = maNL.trim();
         for (NguyenLieu nl : dsNguyenLieu) {
             if (nl.getMaNL().equalsIgnoreCase(maNL)) {
                 return nl;
@@ -94,13 +132,13 @@ public class DanhSachNguyenLieu implements IFile {
 
     private void inTieuDeBangNguyenLieu() {
         inDuongKeBangNguyenLieu();
-        System.out.printf("| %-6s | %-22s | %-8s | %10s | %10s | %12s | %-8s | %-13s |%n",
-                "Ma NL", "Ten Nguyen Lieu", "Don Vi", "SL Ton", "Toi Thieu", "Don Gia", "Ma NCC", "Trang Thai");
+        System.out.printf("| %-6s | %-22s | %-8s | %10s | %10s | %12s | %-8s | %-13s | %-5s |%n",
+                "Ma NL", "Ten Nguyen Lieu", "Don Vi", "SL Ton", "Toi Thieu", "Don Gia", "Ma NCC", "Trang Thai", "Khoa");
         inDuongKeBangNguyenLieu();
     }
 
     private void inDuongKeBangNguyenLieu() {
-        System.out.println("+--------+------------------------+----------+------------+------------+--------------+----------+---------------+");
+        System.out.println("+--------+------------------------+----------+------------+------------+--------------+----------+---------------+-------+");
     }
 
     public boolean themNhaCungCap(NhaCungCap ncc) {
@@ -154,6 +192,139 @@ public class DanhSachNguyenLieu implements IFile {
     public boolean xuatKhoNguyenLieu(String maNL, double soLuong) {
         NguyenLieu nl = timTheoMa(maNL);
         return nl != null && nl.xuatKho(soLuong);
+    }
+
+    // ===================== Nhập kho nhanh (mã phiếu + ngày tự động) =====================
+
+    // mã phiếu nhập mới dạng PN01, PN02... (lớn nhất hiện có + 1)
+    public String maPhieuNhapMoi() {
+        int max = 0;
+        for (PhieuNhapKho pn : dsPhieuNhap) {
+            max = Math.max(max, soTrongMa(pn.getMaPhieu(), "PN"));
+        }
+        return String.format("PN%02d", max + 1);
+    }
+
+    /**
+     * Lập phiếu nhập cho 1 nguyên liệu đã có trong kho. donGia <= 0 = giữ đơn giá cũ, maNCC rỗng = nhà cung cấp mặc định.
+     * Dữ liệu sai thì ném IllegalArgumentException và k đổi gì.
+     */
+    public PhieuNhapKho nhapKho(String maNV, String maNL, double soLuong, double donGia, String maNCC) {
+        NguyenLieu nl = timTheoMa(maNL);
+        if (nl == null) {
+            throw new IllegalArgumentException("Không tìm thấy nguyên liệu " + maNL);
+        }
+        if (!Double.isFinite(soLuong) || soLuong <= 0) {
+            throw new IllegalArgumentException("Số lượng nhập phải là số dương");
+        }
+        String ncc = (maNCC == null || maNCC.trim().isEmpty()) ? nl.getMaNCC() : maNCC.trim();
+        if (!dsNhaCungCap.isEmpty() && timNhaCungCap(ncc) == null) {
+            throw new IllegalArgumentException("Không tìm thấy nhà cung cấp " + ncc);
+        }
+        double gia = donGia > 0 ? donGia : nl.getDonGiaNhap();
+        PhieuNhapKho pn = new PhieuNhapKho(maPhieuNhapMoi(),
+                LocalDate.now().format(util.CauHinh.DINH_DANG_NGAY),
+                maNV == null ? "" : maNV.trim().toUpperCase(), ncc, nl.getMaNL(), soLuong, gia);
+        if (!lapPhieuNhapKho(pn)) {
+            throw new IllegalArgumentException("Không lập được phiếu nhập");
+        }
+        return pn;
+    }
+
+    // ===================== Xuất kho bằng phiếu xuất =====================
+
+    // mã phiếu xuất mới dạng PX01, PX02... tự sinh để lưu lại
+    public String maPhieuXuatMoi() {
+        int max = 0;
+        for (PhieuXuatKho px : dsPhieuXuat) {
+            max = Math.max(max, soTrongMa(px.getMaPhieu(), "PX"));
+        }
+        return String.format("PX%02d", max + 1);
+    }
+
+    /**
+     * Lập phiếu xuất nhiều dòng (maNL -> số lượng) một lần: kiểm tra TẤT CẢ dòng trước, đủ hết mới trừ kho.
+     * Sai (thiếu lý do, mã lạ, k đủ tồn...) thì ném IllegalArgumentException và k trừ gì cả.
+     */
+    public PhieuXuatKho lapPhieuXuat(String maNV, String noiDung, Map<String, Double> dong) {
+        if (dong == null || dong.isEmpty()) {
+            throw new IllegalArgumentException("Phiếu xuất phải có ít nhất 1 nguyên liệu");
+        }
+        PhieuXuatKho px = new PhieuXuatKho(maPhieuXuatMoi(), LocalDateTime.now(), maNV, noiDung);
+        for (Map.Entry<String, Double> e : dong.entrySet()) {
+            px.themDong(e.getKey(), e.getValue());
+        }
+        for (Map.Entry<String, Double> e : px.getChiTiet().entrySet()) {
+            NguyenLieu nl = timTheoMa(e.getKey());
+            if (nl == null) {
+                throw new IllegalArgumentException("Không tìm thấy nguyên liệu " + e.getKey());
+            }
+            if (e.getValue() > nl.getSoLuongTon() + 1e-9) {
+                throw new IllegalArgumentException(String.format(Locale.US,
+                        "%s k đủ tồn kho (cần xuất %.2f, còn %.2f %s)",
+                        nl.getTenNL(), e.getValue(), nl.getSoLuongTon(), nl.getDonViTinh()));
+            }
+        }
+        for (Map.Entry<String, Double> e : px.getChiTiet().entrySet()) {
+            NguyenLieu nl = timTheoMa(e.getKey());
+            nl.setSoLuongTon(nl.getSoLuongTon() - e.getValue());
+        }
+        dsPhieuXuat.add(px);
+        return px;
+    }
+
+    public PhieuXuatKho timPhieuXuat(String maPhieu) {
+        for (PhieuXuatKho px : dsPhieuXuat) {
+            if (px.getMaPhieu().equalsIgnoreCase(maPhieu == null ? "" : maPhieu.trim())) {
+                return px;
+            }
+        }
+        return null;
+    }
+
+    public void hienThiPhieuXuatKho() {
+        if (dsPhieuXuat.isEmpty()) {
+            System.out.println("Chua co phieu xuat kho nao.");
+            return;
+        }
+        System.out.println("Ma     | Thoi gian        | Ma NV  | Noi dung                       | So dong");
+        for (PhieuXuatKho px : dsPhieuXuat) {
+            System.out.println(px);
+        }
+    }
+
+    // ===================== Khoá / mở khoá nguyên liệu (khoá các món có nguyên liệu đó) =====================
+
+    // false nếu k có mã nguyên liệu
+    public boolean datKhoa(String maNL, boolean khoa) {
+        NguyenLieu nl = timTheoMa(maNL);
+        if (nl == null) {
+            return false;
+        }
+        nl.setKhoa(khoa);
+        return true;
+    }
+
+    public List<NguyenLieu> layDanhSachDangKhoa() {
+        List<NguyenLieu> kq = new ArrayList<>();
+        for (NguyenLieu nl : dsNguyenLieu) {
+            if (nl.isKhoa()) {
+                kq.add(nl);
+            }
+        }
+        return kq;
+    }
+
+    // lấy phần số của mã: "PN07" -> 7, k đúng dạng -> 0
+    private static int soTrongMa(String ma, String tienTo) {
+        if (ma == null || !ma.toUpperCase().startsWith(tienTo)) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(ma.substring(tienTo.length()).trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     public void hienThiPhieuNhapKho() {
@@ -233,6 +404,7 @@ public class DanhSachNguyenLieu implements IFile {
         System.out.printf("- Tong so nha cung cap          : %d NCC%n", dsNhaCungCap.size());
         System.out.printf("- Tong so phieu nhap kho        : %d phieu%n", dsPhieuNhap.size());
         System.out.printf("- Tong chi phi nhap hang        : %,.0f VND%n", tongChiPhiNhap);
+        System.out.printf("- Tong so phieu xuat kho        : %d phieu%n", dsPhieuXuat.size());
         System.out.println("--------------------------------------------------------------");
         System.out.println("+--------+------------------------+------------+--------------+----------------+---------------+");
         System.out.printf("| %-6s | %-22s | %10s | %12s | %14s | %-13s |%n",
@@ -251,6 +423,7 @@ public class DanhSachNguyenLieu implements IFile {
         dsNguyenLieu.clear();
         dsNhaCungCap.clear();
         dsPhieuNhap.clear();
+        dsPhieuXuat.clear();
 
         for (String line : lines) {
             if (line.startsWith("NCC|")) {
@@ -259,6 +432,9 @@ public class DanhSachNguyenLieu implements IFile {
             } else if (line.startsWith("PN|")) {
                 PhieuNhapKho pn = PhieuNhapKho.fromFileString(line.substring(3));
                 if (pn != null) dsPhieuNhap.add(pn);
+            } else if (line.startsWith("PX|")) {
+                PhieuXuatKho px = PhieuXuatKho.fromFileString(line.substring(3));
+                if (px != null) dsPhieuXuat.add(px);
             } else if (line.startsWith("NL|")) {
                 NguyenLieu nl = NguyenLieu.fromFileString(line.substring(3));
                 if (nl != null) dsNguyenLieu.add(nl);
@@ -273,7 +449,7 @@ public class DanhSachNguyenLieu implements IFile {
     @Override
     public void ghiFile(String tenFile) {
         List<String> lines = new ArrayList<>();
-        lines.add("# DANH SACH NGUYEN LIEU (maNL;tenNL;donViTinh;soLuongTon;mucToiThieu;donGiaNhap;maNCC)");
+        lines.add("# DANH SACH NGUYEN LIEU (maNL;tenNL;donViTinh;soLuongTon;mucToiThieu;donGiaNhap;maNCC;khoa)");
         for (NguyenLieu nl : dsNguyenLieu) {
             lines.add(nl.toFileString());
         }
@@ -287,6 +463,12 @@ public class DanhSachNguyenLieu implements IFile {
             lines.add("# DANH SACH PHIEU NHAP KHO (PN|maPhieu;ngayNhap;maNV;maNCC;maNL;soLuongNhap;donGiaNhap)");
             for (PhieuNhapKho pn : dsPhieuNhap) {
                 lines.add("PN|" + pn.toFileString());
+            }
+        }
+        if (!dsPhieuXuat.isEmpty()) {
+            lines.add("# DANH SACH PHIEU XUAT KHO (PX|maPhieu;thoiGian;maNV;noiDung;maNL:soLuong,maNL:soLuong)");
+            for (PhieuXuatKho px : dsPhieuXuat) {
+                lines.add("PX|" + px.toFileString());
             }
         }
         FileHelper.ghiFile(tenFile, lines);
