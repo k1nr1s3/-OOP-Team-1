@@ -3,7 +3,7 @@ package service;
 import iface.IFile;
 import iface.IQuanLy;
 import model.NhanVien;
-import model.PhaChe;
+import model.PhaCheCheBien;
 import model.QuanLy;
 import model.ThuNgan;
 
@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
  *
  * Định dạng mỗi dòng trong data/nhanvien.txt (ngăn cách bằng '|'):
  *   LOAI|ma|hoTen|ngaySinh|gioiTinh|sdt|diaChi|ngayVaoLam|luongCoBan|<trường riêng>|<chấm công>
- *   TN: caLam|soQuay|doanhThuKy          PC: capBac|soLyPhaChe          QL: chucVu|phuCap|tyLeKPI
+ *   TN: capBac|caLam|soQuay|doanhThuKy (+ cuối dòng: lịch sử ca yyyy-MM-dd:CA,...)          NB: capBac|soLyPhaChe|soMonCheBien          QL: chucVu|phuCap|tyLeKPI
  *   Chấm công: yyyy-MM-dd:soGio,yyyy-MM-dd:soGio,...
  */
 public class DanhSachNhanVien implements IQuanLy<NhanVien>, IFile {
@@ -105,9 +105,20 @@ public class DanhSachNhanVien implements IQuanLy<NhanVien>, IFile {
 
     public boolean ghiNhanSoLy(String maNV, int thang, int nam, int soLy) {
         NhanVien nv = timTheoMa(maNV);
-        if (!(nv instanceof PhaChe) || soLy <= 0) return false;
+        if (!(nv instanceof PhaCheCheBien) || soLy <= 0) return false;
         try {
-            ((PhaChe) nv).themSoLy(YearMonth.of(nam, thang), soLy);
+            ((PhaCheCheBien) nv).themSoLy(YearMonth.of(nam, thang), soLy);
+            return true;
+        } catch (DateTimeException e) {
+            return false;
+        }
+    }
+
+    public boolean ghiNhanSoMon(String maNV, int thang, int nam, int soMon) {
+        NhanVien nv = timTheoMa(maNV);
+        if (!(nv instanceof PhaCheCheBien) || soMon <= 0) return false;
+        try {
+            ((PhaCheCheBien) nv).themSoMon(YearMonth.of(nam, thang), soMon);
             return true;
         } catch (DateTimeException e) {
             return false;
@@ -123,10 +134,10 @@ public class DanhSachNhanVien implements IQuanLy<NhanVien>, IFile {
 
     public void inBangChamCong(int thang, int nam) {
         System.out.printf("===== BẢNG CHẤM CÔNG THÁNG %02d/%d =====%n", thang, nam);
-        System.out.printf("%-6s %-22s %-9s %10s %10s %10s%n",
+        System.out.printf("%-6s %-22s %-13s %10s %10s %10s%n",
                 "Mã", "Họ tên", "Vai trò", "Ngày làm", "Ngày công", "Giờ OT");
         for (NhanVien nv : dsNV) {
-            System.out.printf("%-6s %-22s %-9s %10d %10.2f %10.2f%n",
+            System.out.printf("%-6s %-22s %-13s %10d %10.2f %10.2f%n",
                     nv.getMaNV(), nv.getHoTen(), nv.getVaiTro(),
                     nv.tinhSoNgayDiLam(thang, nam), nv.tinhSoNgayCong(thang, nam), nv.tinhGioLamThem(thang, nam));
         }
@@ -154,13 +165,67 @@ public class DanhSachNhanVien implements IQuanLy<NhanVien>, IFile {
 
     public void inBangLuong(int thang, int nam) {
         System.out.printf("===== BẢNG LƯƠNG THÁNG %02d/%d =====%n", thang, nam);
-        System.out.printf("%-6s %-22s %-9s %10s %18s%n", "Mã", "Họ tên", "Vai trò", "Ngày công", "Thực lĩnh");
+        System.out.printf("%-6s %-22s %-13s %10s %18s%n", "Mã", "Họ tên", "Vai trò", "Ngày công", "Thực lĩnh");
         for (NhanVien nv : dsNV) {
-            System.out.printf("%-6s %-22s %-9s %10.2f %18s%n",
+            System.out.printf("%-6s %-22s %-13s %10.2f %18s%n",
                     nv.getMaNV(), nv.getHoTen(), nv.getVaiTro(),
                     nv.tinhSoNgayCong(thang, nam), NhanVien.dinhDangTien(nv.tinhLuong(thang, nam)));
         }
         System.out.println("Tổng chi lương: " + NhanVien.dinhDangTien(tinhTongLuong(thang, nam)));
+    }
+
+    // ===================== Đổi ca / cấp bậc / chức vụ =====================
+
+    // Đổi ca của thu ngân kể từ ngày tuNgay, các ngày trước đó vẫn tính theo ca cũ.
+    // False nếu không có mã, không phải thu ngân hoặc ca mới trùng ca đang áp dụng.
+    // Ném IllegalArgumentException nếu ngày đổi không hợp lệ.
+    public boolean doiCaLam(String maNV, ThuNgan.CaLam caMoi, LocalDate tuNgay) {
+        NhanVien nv = timTheoMa(maNV);
+        if (!(nv instanceof ThuNgan) || caMoi == null) return false;
+        return ((ThuNgan) nv).doiCaTu(caMoi, tuNgay);
+    }
+
+    public boolean doiCaLam(String maNV, ThuNgan.CaLam caMoi) {
+        return doiCaLam(maNV, caMoi, LocalDate.now());
+    }
+
+    // Đổi cấp bậc (học việc / chính thức) của thu ngân. False nếu không phải thu ngân hoặc trùng cấp bậc cũ.
+    public boolean doiCapBac(String maNV, ThuNgan.CapBac capBacMoi) {
+        NhanVien nv = timTheoMa(maNV);
+        if (!(nv instanceof ThuNgan) || capBacMoi == null) return false;
+        ThuNgan tn = (ThuNgan) nv;
+        if (tn.getCapBac() == capBacMoi) return false;
+        tn.setCapBac(capBacMoi);
+        return true;
+    }
+
+    // Đổi cấp bậc của nhân viên bếp. False nếu không phải nhân viên bếp hoặc trùng cấp bậc cũ.
+    public boolean doiCapBac(String maNV, PhaCheCheBien.CapBac capBacMoi) {
+        NhanVien nv = timTheoMa(maNV);
+        if (!(nv instanceof PhaCheCheBien) || capBacMoi == null) return false;
+        PhaCheCheBien pc = (PhaCheCheBien) nv;
+        if (pc.getCapBac() == capBacMoi) return false;
+        pc.setCapBac(capBacMoi);
+        return true;
+    }
+
+    // Đổi chức vụ + phụ cấp chức vụ của quản lý. Dữ liệu sai thì ném IllegalArgumentException và giữ nguyên giá trị cũ.
+    // False nếu không phải quản lý hoặc không có gì thay đổi.
+    public boolean doiChucVu(String maNV, String chucVuMoi, double phuCapMoi) {
+        NhanVien nv = timTheoMa(maNV);
+        if (!(nv instanceof QuanLy)) return false;
+        QuanLy ql = (QuanLy) nv;
+        String chucCu = ql.getChucVu();
+        double phuCapCu = ql.getPhuCapChucVu();
+        try {
+            ql.setChucVu(chucVuMoi);
+            ql.setPhuCapChucVu(phuCapMoi);
+        } catch (IllegalArgumentException e) {
+            ql.setChucVu(chucCu);
+            ql.setPhuCapChucVu(phuCapCu);
+            throw e;
+        }
+        return !chucCu.equals(ql.getChucVu()) || phuCapCu != ql.getPhuCapChucVu();
     }
 
     // ===================== Tìm kiếm =====================
@@ -230,7 +295,7 @@ public class DanhSachNhanVien implements IQuanLy<NhanVien>, IFile {
 
     // ===================== Thống kê =====================
 
-    // Số lượng nhân viên theo vai trò: {Thu ngân=2, Pha chế=3, Quản lý=1}.
+    // Số lượng nhân viên theo vai trò: {Thu ngân=2, Nhân viên bếp=3, Quản lý=1}.
     public Map<String, Long> demTheoVaiTro() {
         return dsNV.stream().collect(Collectors.groupingBy(
                 NhanVien::getVaiTro, LinkedHashMap::new, Collectors.counting()));
@@ -338,7 +403,8 @@ public class DanhSachNhanVien implements IQuanLy<NhanVien>, IFile {
         String[] f = dong.split("\\|", -1);
         switch (f[0].trim()) {
             case "TN": return ThuNgan.taoTuChuoi(f);
-            case "PC": return PhaChe.taoTuChuoi(f);
+            case "PC":
+            case "NB": return PhaCheCheBien.taoTuChuoi(f);
             case "QL": return QuanLy.taoTuChuoi(f);
             default: throw new IllegalArgumentException("Loại nhân viên không hợp lệ: " + f[0]);
         }

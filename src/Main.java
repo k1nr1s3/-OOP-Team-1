@@ -5,7 +5,7 @@ import model.HoaDon.TrangThai;
 import model.KhachHang;
 import model.KhuyenMai;
 import model.NhanVien;
-import model.PhaChe;
+import model.PhaCheCheBien;
 import model.QuanLy;
 import model.SanPham;
 import model.ThuNgan;
@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -529,6 +530,8 @@ public class Main {
             System.out.println("11. Phiếu lương 1 nhân viên");
             System.out.println("12. Bảng lương toàn bộ theo tháng");
             System.out.println("13. Thống kê nhân viên theo tháng");
+            System.out.println("14. Đổi ca làm (thu ngân)");
+            System.out.println("15. Đổi cấp bậc / chức vụ");
             System.out.println("0. Quay lại");
             chon = CauHinh.nhapSoNguyen("Chọn: ");
             try {
@@ -578,6 +581,8 @@ public class Main {
                         break;
                     case 12: dsNV.inBangLuong(CauHinh.nhapSoNguyen("Tháng: "), CauHinh.nhapSoNguyen("Năm: ")); break;
                     case 13: dsNV.inThongKe(CauHinh.nhapSoNguyen("Tháng: "), CauHinh.nhapSoNguyen("Năm: ")); break;
+                    case 14: doiCaLamNhanVien(); break;
+                    case 15: doiChucNhanVien(); break;
                     case 0: break;
                     default: System.out.println("Lựa chọn k hợp lệ!");
                 }
@@ -602,8 +607,12 @@ public class Main {
             case 2:
                 String vaiTro = CauHinh.nhapChuoi("Vai trò (TN/PC/QL): ").trim().toUpperCase();
                 Class<? extends NhanVien> lop = vaiTro.equals("TN") ? ThuNgan.class
-                        : vaiTro.equals("PC") ? PhaChe.class
+                        : vaiTro.equals("PC") ? PhaCheCheBien.class
                         : vaiTro.equals("QL") ? QuanLy.class : null;
+                if (lop == null) {
+                    System.out.println("Vai trò không hợp lệ (chỉ nhận TN / PC / QL).");
+                    return;
+                }
                 kq = dsNV.timTheoVaiTro(lop);
                 break;
             case 3:
@@ -627,8 +636,86 @@ public class Main {
         System.out.println("Tìm thấy: " + kq.size() + " nhân viên");
     }
 
+    // Hỏi lại cho tới khi nhập đúng một giá trị của enum (không phân biệt hoa thường)
+    private static <E extends Enum<E>> E nhapEnum(String thongBao, Class<E> lop) {
+        while (true) {
+            String s = CauHinh.nhapChuoi(thongBao).trim().toUpperCase();
+            try {
+                return Enum.valueOf(lop, s);
+            } catch (IllegalArgumentException e) {
+                System.out.println("Giá trị không hợp lệ, chỉ nhận: " + Arrays.toString(lop.getEnumConstants()));
+            }
+        }
+    }
+
+    // Nhập số thực, bỏ trống thì giữ giá trị mặc định
+    private static double nhapSoThucMacDinh(String thongBao, double macDinh) {
+        while (true) {
+            String s = CauHinh.nhapChuoi(thongBao);
+            if (s.isEmpty()) return macDinh;
+            try {
+                double v = Double.parseDouble(s.replace(",", "."));
+                if (Double.isFinite(v)) return v;
+            } catch (NumberFormatException e) {
+                // rơi xuống thông báo bên dưới
+            }
+            System.out.println("Vui lòng nhập một số!");
+        }
+    }
+
+    // 14. Đổi ca làm của thu ngân
+    private static void doiCaLamNhanVien() {
+        NhanVien nv = dsNV.timTheoMa(CauHinh.nhapChuoi("Mã nhân viên: "));
+        if (nv == null) {
+            System.out.println("Không tìm thấy nhân viên.");
+            return;
+        }
+        if (!(nv instanceof ThuNgan)) {
+            System.out.println(nv.getMaNV() + " là " + nv.getVaiTro() + ", chỉ thu ngân mới có ca làm.");
+            return;
+        }
+        ThuNgan tn = (ThuNgan) nv;
+        System.out.println("Hiện tại: " + tn);
+        ThuNgan.CaLam caCu = tn.getCaLam();
+        ThuNgan.CaLam caMoi = nhapEnum("Ca mới (SANG/CHIEU/TOI): ", ThuNgan.CaLam.class);
+        System.out.println(dsNV.doiCaLam(tn.getMaNV(), caMoi)
+                ? "Đã đổi ca " + tn.getMaNV() + ": " + caCu + " -> " + caMoi + "."
+                : "Ca mới trùng ca hiện tại, không có gì thay đổi.");
+    }
+
+    // 15. Đổi cấp bậc (thu ngân / bếp) hoặc chức vụ + phụ cấp (quản lý)
+    private static void doiChucNhanVien() {
+        NhanVien nv = dsNV.timTheoMa(CauHinh.nhapChuoi("Mã nhân viên: "));
+        if (nv == null) {
+            System.out.println("Không tìm thấy nhân viên.");
+            return;
+        }
+        System.out.println("Hiện tại: " + nv);
+        if (nv instanceof ThuNgan) {
+            ThuNgan.CapBac moi = nhapEnum("Cấp bậc mới (HOC_VIEC/CHINH_THUC): ", ThuNgan.CapBac.class);
+            System.out.println(dsNV.doiCapBac(nv.getMaNV(), moi)
+                    ? "Đã đổi cấp bậc " + nv.getMaNV() + " thành " + moi + "."
+                    : "Cấp bậc mới trùng cấp bậc hiện tại, không có gì thay đổi.");
+        } else if (nv instanceof PhaCheCheBien) {
+            PhaCheCheBien.CapBac moi = nhapEnum("Cấp bậc mới (HOC_VIEC/CHINH_THUC): ", PhaCheCheBien.CapBac.class);
+            System.out.println(dsNV.doiCapBac(nv.getMaNV(), moi)
+                    ? "Đã đổi cấp bậc " + nv.getMaNV() + " thành " + moi + "."
+                    : "Cấp bậc mới trùng cấp bậc hiện tại, không có gì thay đổi.");
+        } else if (nv instanceof QuanLy) {
+            QuanLy ql = (QuanLy) nv;
+            String chuc = CauHinh.nhapChuoi("Chức vụ mới (bỏ trống = giữ \"" + ql.getChucVu() + "\"): ");
+            if (chuc.isEmpty()) chuc = ql.getChucVu();
+            double phuCap = nhapSoThucMacDinh("Phụ cấp chức vụ mới (VND, bỏ trống = giữ "
+                    + NhanVien.dinhDangTien(ql.getPhuCapChucVu()) + "): ", ql.getPhuCapChucVu());
+            System.out.println(dsNV.doiChucVu(ql.getMaNV(), chuc, phuCap)
+                    ? "Đã cập nhật chức vụ " + ql.getMaNV() + ": " + ql.getChucVu()
+                      + " (phụ cấp " + NhanVien.dinhDangTien(ql.getPhuCapChucVu()) + ")."
+                    : "Không có gì thay đổi.");
+        }
+    }
+
     private static void themNhanVien() {
-        System.out.println("Loại: 1. Thu ngân  2. Pha chế  3. Quản lý");
+        System.out.println("Loại: 1. Thu ngân  2. Pha chế/chế biến  3. Quản lý");
         int loai = CauHinh.nhapSoNguyen("Chọn: ");
         String ma = dsNV.maMoiTuDong();
         String ten = CauHinh.nhapChuoi("Họ tên: ");
@@ -641,12 +728,14 @@ public class Main {
         NhanVien nv;
         switch (loai) {
             case 1:
-                ThuNgan.CaLam ca = ThuNgan.CaLam.valueOf(CauHinh.nhapChuoi("Ca làm (SANG/CHIEU/TOI): ").toUpperCase());
-                nv = new ThuNgan(ma, ten, ns, gt, sdt, dc, vao, luong, ca, CauHinh.nhapSoNguyen("Số quầy: "), 0);
+                ThuNgan.CapBac cbTN = nhapEnum("Cấp bậc (HOC_VIEC/CHINH_THUC): ", ThuNgan.CapBac.class);
+                ThuNgan.CaLam ca = nhapEnum("Ca làm (SANG/CHIEU/TOI): ", ThuNgan.CaLam.class);
+                nv = new ThuNgan(ma, ten, ns, gt, sdt, dc, vao, luong, cbTN, ca,
+                        CauHinh.nhapSoNguyen("Số quầy: "), 0);
                 break;
             case 2:
-                PhaChe.CapBac cb = PhaChe.CapBac.valueOf(CauHinh.nhapChuoi("Cấp bậc (HOC_VIEC/CHINH_THUC/TRUONG_BAR): ").toUpperCase());
-                nv = new PhaChe(ma, ten, ns, gt, sdt, dc, vao, luong, cb, 0);
+                PhaCheCheBien.CapBac cb = nhapEnum("Cấp bậc (HOC_VIEC/CHINH_THUC): ", PhaCheCheBien.CapBac.class);
+                nv = new PhaCheCheBien(ma, ten, ns, gt, sdt, dc, vao, luong, cb, 0);
                 break;
             case 3:
                 nv = new QuanLy(ma, ten, ns, gt, sdt, dc, vao, luong, CauHinh.nhapChuoi("Chức vụ: "),

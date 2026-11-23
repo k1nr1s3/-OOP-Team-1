@@ -54,7 +54,7 @@ public abstract class NhanVien {
     // thưởng + phụ cấp thêm nếu có  
     public abstract double tinhThuongPhuCap(int thang, int nam);
 
-    // Mã loại dùng khi ghi file: TN, PC, QL
+    // Mã loại dùng khi ghi file: TN, NB (cũ PC), QL
     protected abstract String maLoai();
 
     // Các trường riêng của lớp con
@@ -122,10 +122,18 @@ public abstract class NhanVien {
         double tong = 0;
         for (Map.Entry<LocalDate, Double> e : bangChamCong.entrySet()) {
             if (YearMonth.from(e.getKey()).equals(ym)) {
-                tong += Math.max(0, e.getValue() - GIO_CHUAN_MOI_NGAY);
+                tong += Math.max(0, e.getValue() - gioChuanLamThemTrongNgay());
             }
         }
         return tong;
+    }
+
+    protected double gioChuanLamThemTrongNgay() {
+        return GIO_CHUAN_MOI_NGAY;
+    }
+
+    protected double getHeSoLamThem() {
+        return HE_SO_LAM_THEM;
     }
 
     public Map<LocalDate, Double> getBangChamCong() {
@@ -140,7 +148,7 @@ public abstract class NhanVien {
 
     public double tinhTienLamThem(int thang, int nam) {
         double luongMotGio = luongCoBan / NGAY_CONG_CHUAN / GIO_CHUAN_MOI_NGAY;
-        return luongMotGio * HE_SO_LAM_THEM * tinhGioLamThem(thang, nam);
+        return luongMotGio * getHeSoLamThem() * tinhGioLamThem(thang, nam);
     }
 
     public double tinhBaoHiem() {
@@ -179,11 +187,16 @@ public abstract class NhanVien {
 
     // định dạng 1 dòng dữ liệu để lưu 
     public final String toFileString() {
-        return String.join("|",
+        String dong = String.join("|",
                 maLoai(), maNV, hoTen, ngaySinh.toString(), gioiTinh, soDienThoai, diaChi,
                 ngayVaoLam.toString(), String.valueOf(luongCoBan),
                 chuoiRieng(), chuoiChamCong());
+        String them = chuoiCuoiDong();
+        return them == null ? dong : dong + "|" + them;
     }
+
+    // Trường ghi thêm sau chấm công (lớp con cần thì ghi đè, mặc định không có)
+    protected String chuoiCuoiDong() { return null; }
 
     // định dạng chầm công theo chuỗi để lưu file 
     protected final String chuoiChamCong() {
@@ -326,7 +339,7 @@ public abstract class NhanVien {
 
     @Override
     public String toString() {
-        return String.format("%-6s | %-22s | %-9s | %-4s | Vào làm: %s | Lương CB: %s",
+        return String.format("%-6s | %-22s | %-13s | %-4s | Vào làm: %s | Lương CB: %s",
                 maNV, hoTen, getVaiTro(), gioiTinh, ngayVaoLam.format(DINH_DANG_NGAY), dinhDangTien(luongCoBan));
     }
 }
