@@ -6,6 +6,7 @@ import iface.IQuanLy;
 import model.KhachHang;
 import model.KhachHangThanThiet;
 import model.KhachHangThanThiet.Hang;
+import util.CauHinh;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -16,13 +17,13 @@ import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 /**
  * Định dạng mỗi dòng trong data/khachhang.txt (ngăn cách bằng '|'):
  *   LOAI|maKH|hoTen|sdt|diemTichLuy|tongChiTieu
  *   LOAI: THUONG hoặc THANTHIET (hạng tự tính theo tổng chi tiêu)
- * Dùng MẢNG KhachHang[] (phần tử là KhachHang hoặc KhachHangThanThiet -> đa hình)
  */
 public class DanhSachKhachHang implements IQuanLy<KhachHang>, IFile {
 
@@ -87,38 +88,97 @@ public class DanhSachKhachHang implements IQuanLy<KhachHang>, IFile {
     }
 
     // ===================== A. Nhập n phần tử đầu tiên =====================
-    // nhập n khách từ bàn phím, nhập sai thì bắt nhập lại
+    // nhập n khách từ bàn phím: từng mục phải nhập ĐÚNG mới được qua mục tiếp theo, sai thì báo lỗi và hỏi lại đúng mục đó
     public void nhapN(Scanner sc) {
-        int soLuongNhap = 0;
-        while (soLuongNhap <= 0) {
-            System.out.print("Nhập số khách hàng cần thêm: ");
-            try {
-                soLuongNhap = Integer.parseInt(sc.nextLine().trim());
-            } catch (NumberFormatException e) {
-                System.out.println("Vui lòng nhập số nguyên dương!");
-            }
-        }
-        for (int i = 1; i <= soLuongNhap; i++) {
-            System.out.println("--- Khách hàng thứ " + i + " ---");
-            boolean xong = false;
-            while (!xong) {
-                try {
-                    System.out.print("Loại (1 = thường, 2 = thân thiết): ");
-                    String loai = sc.nextLine().trim();
-                    System.out.print("Họ tên: ");
-                    String ten = sc.nextLine();
-                    System.out.print("Số điện thoại: ");
-                    String sdt = sc.nextLine().trim();
-                    KhachHang kh = loai.equals("2") ? new KhachHangThanThiet(ten, sdt) : new KhachHang(ten, sdt);
-                    if (them(kh)) {
-                        System.out.println("Đã thêm " + kh.getMaKH());
-                        xong = true;
-                    } else {
-                        System.out.println("Số điện thoại đã tồn tại, nhập lại!");
-                    }
-                } catch (IllegalArgumentException e) {
-                    System.out.println("Lỗi: " + e.getMessage() + " - nhập lại!");
+        try {
+            int soLuongNhap = docSoLuong(sc);
+            for (int i = 1; i <= soLuongNhap; i++) {
+                System.out.println("--- Khách hàng thứ " + i + " ---");
+                KhachHang kh = nhapMotKhach(sc);
+                if (kh == null) {
+                    return;   // hết dữ liệu nhập
                 }
+                them(kh);
+                System.out.println("Đã thêm " + kh.getMaKH() + " - " + kh.getLoai());
+            }
+        } catch (NoSuchElementException | IllegalStateException e) {
+            // hết dữ liệu nhập khi đang hỏi số lượng thì dừng, k để chương trình bị văng
+            System.out.println("Hết dữ liệu nhập, dừng nhập khách hàng.");
+        }
+    }
+
+    // nhập 1 khách (dùng chung cho "nhập n khách" và "đăng ký nhanh"): hỏi loại -> họ tên -> sđt, mục nào sai thì hỏi lại mục đó
+    // trả về khách hợp lệ CHƯA thêm vào danh sách (nơi gọi tự gọi them), trả về null nếu hết dữ liệu nhập
+    public KhachHang nhapMotKhach(Scanner sc) {
+        try {
+            boolean thanThiet = docLoai(sc);
+            String ten = docHoTen(sc);
+            String sdt = docSDT(sc);
+            // đã kiểm tra hết từng mục ở trên rồi mới tạo đối tượng, nên k bao giờ lỗi và mã tự sinh k bị nhảy số
+            return thanThiet ? new KhachHangThanThiet(ten, sdt) : new KhachHang(ten, sdt);
+        } catch (NoSuchElementException | IllegalStateException e) {
+            System.out.println("Hết dữ liệu nhập, dừng nhập khách hàng.");
+            return null;
+        }
+    }
+
+    // số lượng khách cần nhập: số nguyên từ 1 đến 100 (chữ, số âm, số 0, số thập phân đều bị từ chối)
+    private static int docSoLuong(Scanner sc) {
+        while (true) {
+            System.out.print("Nhập số khách hàng cần thêm (1 - 100): ");
+            String s = sc.nextLine().trim();
+            if (s.matches("\\d{1,3}")) {
+                int so = Integer.parseInt(s);
+                if (so >= 1 && so <= 100) {
+                    return so;
+                }
+            }
+            System.out.println("Bạn đã điền sai: phải nhập số nguyên từ 1 đến 100, nhập lại!");
+        }
+    }
+
+    // loại khách: chỉ nhận đúng 1 (thường) hoặc 2 (thân thiết). true = thân thiết
+    private static boolean docLoai(Scanner sc) {
+        while (true) {
+            System.out.print("Loại khách (1 = thường, 2 = thân thiết): ");
+            String s = sc.nextLine().trim();
+            if (s.equals("1")) {
+                return false;
+            }
+            if (s.equals("2")) {
+                return true;
+            }
+            System.out.println("Bạn đã điền sai: chỉ được nhập 1 hoặc 2, nhập lại!");
+        }
+    }
+
+    // họ tên: 2 - 50 ký tự, chỉ gồm chữ cái (có dấu), khoảng trắng, dấu chấm, nháy, gạch nối; k có số, k có '|'
+    private static boolean hopLeHoTen(String ten) {
+        return ten.length() >= 2 && ten.length() <= 50 && ten.matches("[\\p{L}\\p{M} .'-]+") && ten.matches(".*\\p{L}.*");
+    }
+
+    private static String docHoTen(Scanner sc) {
+        while (true) {
+            System.out.print("Họ tên: ");
+            String ten = sc.nextLine().trim().replaceAll("\\s+", " ");
+            if (hopLeHoTen(ten)) {
+                return ten;
+            }
+            System.out.println("Bạn đã điền sai: họ tên 2 - 50 ký tự, chỉ gồm chữ cái (k số, k ký tự đặc biệt), nhập lại!");
+        }
+    }
+
+    // số điện thoại: đúng 10 số, bắt đầu bằng 0, k trùng khách đã có (kể cả khách vừa nhập ở các lượt trước)
+    private String docSDT(Scanner sc) {
+        while (true) {
+            System.out.print("Số điện thoại: ");
+            String sdt = sc.nextLine().trim();
+            if (!KhachHang.hopLeSDT(sdt)) {
+                System.out.println("Bạn đã điền sai: số điện thoại phải gồm đúng 10 chữ số, bắt đầu bằng 0, nhập lại!");
+            } else if (timTheoSDT(sdt) != null) {
+                System.out.println("Bạn đã điền sai: số điện thoại này đã có khách khác dùng, nhập lại!");
+            } else {
+                return sdt;
             }
         }
     }
@@ -163,32 +223,95 @@ public class DanhSachKhachHang implements IQuanLy<KhachHang>, IFile {
         return dem;
     }
 
-    // đăng ký nhanh khách mới (mã tự sinh), trùng sdt thì trả về null
+    // đăng ký nhanh khách mới (mã tự sinh), menu đã đọc sẵn tên / sđt / loại rồi mới gọi hàm này
+    // hàm tự kiểm tra: tên hoặc sđt sai (hoặc sđt trùng) thì báo lỗi và hỏi lại ĐÚNG mục đó cho tới khi nhập đúng mới cho qua
+    // lưu ý: loại khách (thanThiet) do menu đọc nên hàm k kiểm tra được
     public KhachHang dangKy(String hoTen, String sdt, boolean thanThiet) {
-        KhachHang kh = thanThiet ? new KhachHangThanThiet(hoTen, sdt) : new KhachHang(hoTen, sdt);
-        return them(kh) ? kh : null;
+        Scanner sc = CauHinh.SCANNER;
+        try {
+            String ten = hoTen == null ? "" : hoTen.trim().replaceAll("\\s+", " ");
+            if (!hopLeHoTen(ten)) {
+                System.out.println("Bạn đã điền sai: họ tên 2 - 50 ký tự, chỉ gồm chữ cái (k số, k ký tự đặc biệt), nhập lại!");
+                ten = docHoTen(sc);
+            }
+            String soDT = sdt == null ? "" : sdt.trim();
+            if (!KhachHang.hopLeSDT(soDT)) {
+                System.out.println("Bạn đã điền sai: số điện thoại phải gồm đúng 10 chữ số, bắt đầu bằng 0, nhập lại!");
+                soDT = docSDT(sc);
+            } else if (timTheoSDT(soDT) != null) {
+                System.out.println("Bạn đã điền sai: số điện thoại này đã có khách khác dùng, nhập lại!");
+                soDT = docSDT(sc);
+            }
+            // đã kiểm tra xong mới tạo đối tượng nên mã tự sinh k bị nhảy số
+            KhachHang kh = thanThiet ? new KhachHangThanThiet(ten, soDT) : new KhachHang(ten, soDT);
+            them(kh);
+            return kh;
+        } catch (NoSuchElementException | IllegalStateException e) {
+            // hết dữ liệu nhập giữa chừng thì dừng, menu sẽ in thông báo lỗi
+            throw new IllegalStateException("Hết dữ liệu nhập, dừng đăng ký khách hàng");
+        }
     }
 
     // ===================== D. Sửa theo mã =====================
-    // tham số null hoặc rỗng = giữ nguyên, trả về false nếu k sửa được
+    // tenMoi / sdtMoi: null hoặc rỗng = giữ nguyên mục đó
+    // kiểm tra hết các mục trước, đúng hết mới sửa (sai 1 mục thì k sửa mục nào)
+    // trả về true khi có thay đổi thật sự; false khi k sửa (đã in lý do cụ thể ra màn hình)
     public boolean sua(String ma, String tenMoi, String sdtMoi) {
-        KhachHang kh = timTheoMa(ma);
+        KhachHang kh = timTheoMa(ma == null ? null : ma.trim());
         if (kh == null) {
+            System.out.println("Không tìm thấy khách hàng có mã \"" + (ma == null ? "" : ma.trim()) + "\".");
             return false;
         }
-        boolean doiSDT = sdtMoi != null && !sdtMoi.trim().isEmpty();
-        if (doiSDT) {
-            KhachHang trung = timTheoSDT(sdtMoi.trim());
-            if (!KhachHang.hopLeSDT(sdtMoi.trim()) || (trung != null && trung != kh)) {
+
+        boolean nhapTen = tenMoi != null && !tenMoi.trim().isEmpty();
+        boolean nhapSDT = sdtMoi != null && !sdtMoi.trim().isEmpty();
+        if (!nhapTen && !nhapSDT) {
+            System.out.println("Chưa nhập tên mới hoặc số điện thoại mới nên k có gì để sửa.");
+            return false;
+        }
+
+        // --- kiểm tra ---
+        String ten = null;
+        if (nhapTen) {
+            ten = tenMoi.trim().replaceAll("\\s+", " ");
+            if (!hopLeHoTen(ten)) {
+                System.out.println("Tên mới k hợp lệ: phải 2 - 50 ký tự, chỉ gồm chữ cái (k số, k ký tự đặc biệt như | @ #). K sửa gì cả.");
                 return false;
             }
         }
-        if (tenMoi != null && !tenMoi.trim().isEmpty()) {
-            kh.setHoTen(tenMoi);
+        String sdt = null;
+        if (nhapSDT) {
+            sdt = sdtMoi.trim();
+            if (!KhachHang.hopLeSDT(sdt)) {
+                System.out.println("SĐT mới k hợp lệ: phải gồm đúng 10 chữ số, bắt đầu bằng 0. K sửa gì cả.");
+                return false;
+            }
+            KhachHang trung = timTheoSDT(sdt);
+            if (trung != null && trung != kh) {
+                System.out.println("SĐT " + sdt + " đã thuộc về khách " + trung.getMaKH() + " (" + trung.getHoTen() + "). K sửa gì cả.");
+                return false;
+            }
+        }
+
+        // --- chỉ ghi nhận mục nào thật sự khác giá trị cũ ---
+        boolean doiTen = ten != null && !ten.equals(kh.getHoTen());
+        boolean doiSDT = sdt != null && !sdt.equals(kh.getSoDienThoai());
+        if (!doiTen && !doiSDT) {
+            System.out.println("Thông tin mới giống hệt thông tin hiện tại của " + kh.getMaKH() + " nên k có gì thay đổi.");
+            return false;
+        }
+
+        // --- đã kiểm tra xong, sửa ---
+        StringBuilder sb = new StringBuilder("Đã sửa " + kh.getMaKH() + ":");
+        if (doiTen) {
+            sb.append(" tên \"").append(kh.getHoTen()).append("\" -> \"").append(ten).append("\";");
+            kh.setHoTen(ten);
         }
         if (doiSDT) {
-            kh.setSoDienThoai(sdtMoi.trim());
+            sb.append(" SĐT ").append(kh.getSoDienThoai()).append(" -> ").append(sdt).append(";");
+            kh.setSoDienThoai(sdt);
         }
+        System.out.println(sb.substring(0, sb.length() - 1));
         return true;
     }
 
