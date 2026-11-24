@@ -404,9 +404,11 @@ public class Main {
                     case 1: dsKH.hienThi(); break;
                     case 2: dsKH.nhapN(CauHinh.SCANNER); break;
                     case 3:
-                        KhachHang moi = dsKH.dangKy(CauHinh.nhapChuoi("Họ tên: "), CauHinh.nhapChuoi("Số điện thoại: "),
-                                CauHinh.xacNhan("Khách thân thiết"));
-                        System.out.println(moi == null ? "Số điện thoại đã tồn tại!" : "Đã đăng ký " + moi.getMaKH());
+                        KhachHang moi = dsKH.nhapMotKhach(CauHinh.SCANNER);
+                        if (moi != null) {
+                            System.out.println(dsKH.them(moi) ? "Đã đăng ký " + moi.getMaKH() + " - " + moi.getLoai()
+                                    : "Số điện thoại đã tồn tại!");
+                        }
                         break;
                     case 4:
                         boolean ok = dsKH.sua(CauHinh.nhapChuoi("Mã khách: "),
