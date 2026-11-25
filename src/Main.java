@@ -687,10 +687,7 @@ public class Main {
                     case 3: botMon(); break;
                     case 4: xemBill(); break;
                     case 5: thanhToan(); break;
-                    case 6:
-                        dsHD.huyHoaDon(CauHinh.nhapChuoi("Mã hoá đơn: "), CauHinh.nhapChuoi("Lý do huỷ: "));
-                        System.out.println("Đã huỷ hoá đơn.");
-                        break;
+                    case 6: huyHoaDon(); break;
                     case 7: DanhSachHoaDon.inMang(dsHD.locTheoTrangThai(TrangThai.CHO_THANH_TOAN)); break;
                     case 8: dsSP.hienThiThucDon(dsNL); break;
                     case 0: break;
@@ -744,28 +741,35 @@ public class Main {
         }
         int sl = CauHinh.nhapSoNguyen("Số lượng: ");
         HoaDon hd = dsHD.timTheoMa(maHD);
-        if (hd != null && sl > 0) {
-            List<String> thieu = nguyenLieuThieuKhiThem(hd, sp, sl);
-            if (!thieu.isEmpty()) {
-                System.out.println("K đủ nguyên liệu để thêm " + sl + " x " + sp.getTenSP() + ": " + String.join("; ", thieu));
-                return;
-            }
+        if (hd == null) {
+            System.out.println("Không có hoá đơn " + maHD);
+            return;
         }
-        dsHD.themMon(maHD, sp, sl);
-        System.out.println("Đã thêm: " + sp.getTenSP() + " x" + sl);
+        if (sl <= 0) {
+            System.out.println("Số lượng phải lớn hơn 0.");
+            return;
+        }
+        // mỗi lần order đều kiểm tra lại tồn kho hiện tại (các order trước đã trừ kho rồi nên chỉ cần tính phần mới gọi)
+        List<String> thieu = sp.getCongThuc().nguyenLieuKhongDu(dsNL, sl);
+        if (!thieu.isEmpty()) {
+            System.out.println("K đủ nguyên liệu để thêm " + sl + " x " + sp.getTenSP() + ": " + String.join("; ", thieu));
+            return;
+        }
+        dsHD.themMon(maHD, sp, sl);                       // lỗi (hoá đơn đã đóng, quá 99 phần...) thì chưa trừ kho
+        dsNL.truKhoTheoCongThuc(sp.getCongThuc(), sl);    // trừ nguyên liệu ngay khi order
+        System.out.println("Đã thêm: " + sp.getTenSP() + " x" + sl + " (đã trừ nguyên liệu trong kho)");
+        canhBaoNguyenLieuSapHet(sp);
     }
 
-    // Tổng nguyên liệu cần cho cả hoá đơn (các món đã gọi + sl phần của sp) so với tồn kho; trả về các nguyên liệu thiếu
-    private static List<String> nguyenLieuThieuKhiThem(HoaDon hd, SanPham sp, int sl) {
-        CongThuc can = new CongThuc();
-        for (model.ChiTietHoaDon ct : hd.getDanhSachChiTiet()) {
-            SanPham daGoi = dsSP.timTheoMa(ct.getMaSP());
-            if (daGoi != null) {
-                can.congThem(daGoi.getCongThuc(), ct.getSoLuong());
+    // sau khi trừ kho: báo nguyên liệu của món vừa order nếu đã hết / sắp hết
+    private static void canhBaoNguyenLieuSapHet(SanPham sp) {
+        for (String ma : sp.getCongThuc().getThanhPhan().keySet()) {
+            NguyenLieu nl = dsNL.timTheoMa(ma);
+            if (nl != null && nl.isCanhBaoHetHang()) {
+                System.out.println("Cảnh báo: " + nl.getTenNL() + " " + nl.getTrangThaiTonKho().toLowerCase()
+                        + " (còn " + CongThuc.dinhDangSo(nl.getSoLuongTon()) + " " + nl.getDonViTinh() + ")");
             }
         }
-        can.congThem(sp.getCongThuc(), sl);
-        return can.nguyenLieuKhongDu(dsNL);
     }
 
     private static void goiMon() {
@@ -776,8 +780,43 @@ public class Main {
         String maHD = CauHinh.nhapChuoi("Mã hoá đơn: ");
         String maSP = CauHinh.nhapChuoi("Mã sản phẩm: ");
         int sl = CauHinh.nhapSoNguyen("Số lượng bớt (0 = xoá hẳn món): ");
+        HoaDon hd = dsHD.timTheoMa(maHD);
+        int dangGoi = 0;   // số phần món này đang có trên hoá đơn (để biết hoàn kho bao nhiêu)
+        if (hd != null) {
+            for (model.ChiTietHoaDon ct : hd.getDanhSachChiTiet()) {
+                if (ct.getMaSP().equalsIgnoreCase(maSP.trim())) {
+                    dangGoi = ct.getSoLuong();
+                }
+            }
+        }
         boolean ok = sl <= 0 ? dsHD.xoaMon(maHD, maSP) : dsHD.giamMon(maHD, maSP, sl);
-        System.out.println(ok ? "Đã cập nhật." : "Hoá đơn k có món này.");
+        if (ok) {
+            SanPham sp = dsSP.timTheoMa(maSP);
+            int phanBot = (sl <= 0 || sl > dangGoi) ? dangGoi : sl;
+            if (sp != null) {
+                dsNL.hoanKhoTheoCongThuc(sp.getCongThuc(), phanBot);   // trả nguyên liệu của phần bị bớt về kho
+            }
+        }
+        System.out.println(ok ? "Đã cập nhật (nguyên liệu của phần bị bớt đã trả lại kho)." : "Hoá đơn k có món này.");
+    }
+
+    // huỷ hoá đơn: trả toàn bộ nguyên liệu của các món đã gọi về kho
+    private static void huyHoaDon() {
+        String maHD = CauHinh.nhapChuoi("Mã hoá đơn: ");
+        String lyDo = CauHinh.nhapChuoi("Lý do huỷ: ");
+        HoaDon hd = dsHD.timTheoMa(maHD);
+        CongThuc tra = new CongThuc();
+        if (hd != null) {
+            for (model.ChiTietHoaDon ct : hd.getDanhSachChiTiet()) {
+                SanPham sp = dsSP.timTheoMa(ct.getMaSP());
+                if (sp != null) {
+                    tra.congThem(sp.getCongThuc(), ct.getSoLuong());
+                }
+            }
+        }
+        dsHD.huyHoaDon(maHD, lyDo);          // hoá đơn đã thanh toán / đã huỷ thì ném lỗi, chưa hoàn kho
+        dsNL.hoanKhoTheoCongThuc(tra, 1);
+        System.out.println("Đã huỷ hoá đơn" + (tra.isRong() ? "." : " (nguyên liệu đã trả lại kho)."));
     }
 
     private static void xemBill() {

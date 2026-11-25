@@ -107,15 +107,21 @@ public class CongThuc {
 
     // mô tả các nguyên liệu k đủ để làm công thức này (rỗng = đủ)
     public List<String> nguyenLieuKhongDu(IQuanLy<NguyenLieu> kho) {
+        return nguyenLieuKhongDu(kho, 1);
+    }
+
+    // như trên nhưng cho soPhan phần (vd order 3 phần thì cần gấp 3 liều lượng)
+    public List<String> nguyenLieuKhongDu(IQuanLy<NguyenLieu> kho, int soPhan) {
         List<String> kq = new ArrayList<>();
         for (Map.Entry<String, Double> e : thanhPhan.entrySet()) {
+            double can = e.getValue() * Math.max(soPhan, 1);
             NguyenLieu nl = kho.timTheoMa(e.getKey());
             double ton = nl == null ? 0 : nl.getSoLuongTon();
-            if (ton + 1e-9 < e.getValue()) {
+            if (ton + 1e-9 < can) {
                 String ten = nl == null ? e.getKey() : nl.getTenNL();
                 String dv = nl == null ? "" : " " + nl.getDonViTinh();
                 kq.add(String.format(Locale.US, "%s (cần %s%s, còn %s%s)",
-                        ten, dinhDangSo(e.getValue()), dv, dinhDangSo(ton), dv));
+                        ten, dinhDangSo(can), dv, dinhDangSo(ton), dv));
             }
         }
         return kq;

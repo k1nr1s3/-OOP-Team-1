@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Scanner;
+import model.CongThuc;
 import model.NguyenLieu;
 import model.NhaCungCap;
 import model.PhieuNhapKho;
@@ -271,6 +272,51 @@ public class DanhSachNguyenLieu implements IQuanLy<NguyenLieu>, IFile {
         }
         dsPhieuXuat.add(px);
         return px;
+    }
+
+    // ===================== Trừ / hoàn kho khi bán hàng =====================
+
+    /**
+     * Trừ nguyên liệu cho heSo phần theo công thức. Kiểm tra tồn kho hiện tại TRƯỚC: thiếu bất kỳ nguyên liệu nào
+     * thì ném IllegalArgumentException (kèm danh sách thiếu) và k trừ gì cả. Công thức rỗng thì k làm gì.
+     */
+    public void truKhoTheoCongThuc(CongThuc congThuc, int heSo) {
+        CongThuc can = nhanCongThuc(congThuc, heSo);
+        if (can.isRong()) {
+            return;
+        }
+        List<String> thieu = can.nguyenLieuKhongDu(this);
+        if (!thieu.isEmpty()) {
+            throw new IllegalArgumentException("K đủ nguyên liệu: " + String.join("; ", thieu));
+        }
+        for (Map.Entry<String, Double> e : can.getThanhPhan().entrySet()) {
+            NguyenLieu nl = timTheoMa(e.getKey());
+            nl.setSoLuongTon(lamTron(nl.getSoLuongTon() - e.getValue()));
+        }
+    }
+
+    // cộng trả nguyên liệu cho heSo phần (khi bớt / xoá món, huỷ hoá đơn)
+    public void hoanKhoTheoCongThuc(CongThuc congThuc, int heSo) {
+        CongThuc tra = nhanCongThuc(congThuc, heSo);
+        for (Map.Entry<String, Double> e : tra.getThanhPhan().entrySet()) {
+            NguyenLieu nl = timTheoMa(e.getKey());
+            if (nl != null) {
+                nl.setSoLuongTon(lamTron(nl.getSoLuongTon() + e.getValue()));
+            }
+        }
+    }
+
+    private static CongThuc nhanCongThuc(CongThuc congThuc, int heSo) {
+        CongThuc kq = new CongThuc();
+        if (congThuc != null && heSo > 0) {
+            kq.congThem(congThuc, heSo);
+        }
+        return kq;
+    }
+
+    // tránh sai số số thực khi cộng trừ nhiều lần (14.95 - 0.03 = 14.919999...)
+    private static double lamTron(double so) {
+        return Math.round(so * 10000) / 10000.0;
     }
 
     public PhieuXuatKho timPhieuXuat(String maPhieu) {

@@ -6,13 +6,13 @@ NL04;Sua dac Ngon;hop;6.00;8.00;28000;NCC02;false
 NL05;Tra den Oolong;kg;0.00;3.00;220000;NCC03;false
 NL06;Tran chau den;kg;12.50;5.00;65000;NCC03;false
 NL07;Duong trang tinh luyen;kg;25.00;10.00;22000;NCC02;false
-NL08;Thit ga;kg;10.00;3.00;95000;NCC02;true
-NL09;Bot chien xu;kg;5.00;2.00;40000;NCC02;false
+NL08;Thit ga;kg;9.50;3.00;95000;NCC02;true
+NL09;Bot chien xu;kg;4.90;2.00;40000;NCC02;false
 NL10;Banh burger;cai;100.00;30.00;4000;NCC02;false
 NL11;Thit bo xay;kg;8.00;3.00;180000;NCC02;false
 NL12;Pho mai lat;lat;80.00;20.00;3000;NCC02;false
 NL13;Khoai tay;kg;20.00;5.00;30000;NCC02;false
-NL14;Dau an;lit;15.00;5.00;45000;NCC02;false
+NL14;Dau an;lit;14.94;5.00;45000;NCC02;false
 NL15;Siro Coca-Cola;lit;6.00;2.00;60000;NCC02;false
 NL16;Siro dao cam sa;lit;4.00;1.50;85000;NCC03;false
 # DANH SACH NHA CUNG CAP (NCC|maNCC;tenNCC;soDienThoai;diaChi)
