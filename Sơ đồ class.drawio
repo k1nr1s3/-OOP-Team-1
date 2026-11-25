@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net">
   <diagram name="Trang-1" id="U-6RhGNM6ZwmNqv2XyoO">
-    <mxGraphModel dx="-329" dy="1510" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="-1566" dy="847" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -197,7 +197,7 @@
           <mxGeometry height="106" width="491" y="72" as="geometry" />
         </mxCell>
         <mxCell id="GFrMKZTiUtZB-8jsdA9T-340" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=28;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;swimlaneFillColor=#ffffff;" value="Combo" vertex="1">
-          <mxGeometry height="248" width="472" x="4429" y="3489" as="geometry" />
+          <mxGeometry height="303" width="472" x="4429" y="3489" as="geometry" />
         </mxCell>
         <mxCell id="GFrMKZTiUtZB-8jsdA9T-341" parent="GFrMKZTiUtZB-8jsdA9T-340" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;whiteSpace=nowrap;fontFamily=Consolas;fontSize=11;" value="- maThanhPhan : String[]&lt;br&gt;- monThanhPhan : List&amp;lt;SanPham&amp;gt;  {readOnly}" vertex="1">
           <mxGeometry height="36" width="472" y="28" as="geometry" />
@@ -205,8 +205,8 @@
         <mxCell id="GFrMKZTiUtZB-8jsdA9T-342" parent="GFrMKZTiUtZB-8jsdA9T-340" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" value="" vertex="1">
           <mxGeometry height="8" width="472" y="64" as="geometry" />
         </mxCell>
-        <mxCell id="GFrMKZTiUtZB-8jsdA9T-343" parent="GFrMKZTiUtZB-8jsdA9T-340" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;whiteSpace=nowrap;fontFamily=Consolas;fontSize=11;" value="+ Combo(maSP : String, tenSP : String, donGia : double, dsMa : String)&lt;br&gt;+ getLoai() : String&lt;br&gt;# maLoai() : String&lt;br&gt;+ moTaThem() : String&lt;br&gt;# chuoiRieng() : String&lt;br&gt;+ hienThiThongTin() : void&lt;br&gt;+ lienKet(ds : IQuanLy&amp;lt;SanPham&amp;gt;) : List&amp;lt;String&amp;gt;&lt;br&gt;# chuoiCongThucFile() : String&lt;br&gt;+ tinhGiaLe(ds : IQuanLy&amp;lt;SanPham&amp;gt;) : double&lt;br&gt;+ tienTietKiem(ds : IQuanLy&amp;lt;SanPham&amp;gt;) : double&lt;br&gt;+ getMaThanhPhan() : String[]&lt;br&gt;+ setThanhPhan(dsMa : String) : void" vertex="1">
-          <mxGeometry height="176" width="472" y="72" as="geometry" />
+        <mxCell id="GFrMKZTiUtZB-8jsdA9T-343" parent="GFrMKZTiUtZB-8jsdA9T-340" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;html=1;whiteSpace=nowrap;fontFamily=Consolas;fontSize=11;" value="&lt;div&gt;+ Combo(maSP : String, tenSP : String, donGia : double, dsMa : String)&lt;/div&gt;&lt;div&gt;+ getLoai() : String&lt;/div&gt;&lt;div&gt;# maLoai() : String&lt;/div&gt;&lt;div&gt;+ moTaThem() : String&lt;/div&gt;&lt;div&gt;# chuoiRieng() : String&lt;/div&gt;&lt;div&gt;+ hienThiThongTin() : void&lt;/div&gt;&lt;div&gt;+ lienKet(ds : IQuanLy) : List&lt;/div&gt;&lt;div&gt;+ getMonThanhPhan() : List&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/div&gt;&lt;div&gt;+ getCongThuc() : CongThuc&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&lt;/div&gt;&lt;div&gt;+ setCongThuc(congThuc : CongThuc) : void&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/div&gt;&lt;div&gt;# chuoiCongThucFile() : String&lt;/div&gt;&lt;div&gt;+ tinhGiaLe(ds : IQuanLy) : double&lt;/div&gt;&lt;div&gt;+ tienTietKiem(ds : IQuanLy) : double&lt;/div&gt;&lt;div&gt;+ getMaThanhPhan() : String[]&lt;/div&gt;&lt;div&gt;+ setThanhPhan(dsMa : String) : void&lt;/div&gt;" vertex="1">
+          <mxGeometry height="231" width="472" y="72" as="geometry" />
         </mxCell>
         <mxCell id="GFrMKZTiUtZB-8jsdA9T-344" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=28;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;swimlaneFillColor=#ffffff;" value="KhachHang" vertex="1">
           <mxGeometry height="402" width="555" x="3709" y="2123" as="geometry" />
@@ -1353,6 +1353,9 @@
               <mxPoint x="6956" y="3955" />
             </Array>
           </mxGeometry>
+        </mxCell>
+        <mxCell id="WMlvhyqQM2M5JH2O7NTZ-1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 6px;&quot;&gt;1-*&lt;/font&gt;" vertex="1">
+          <mxGeometry height="3.04" width="27.31" x="3371" y="2457" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
