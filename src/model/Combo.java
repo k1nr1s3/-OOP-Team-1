@@ -11,7 +11,6 @@ import java.util.List;
 public class Combo extends SanPham {
 
     private String[] maThanhPhan;
-    // has-a: Combo chứa các món thành phần (SanPham thật, liên kết từ mã bằng lienKet). Mã lặp lại = nhiều phần.
     private final List<SanPham> monThanhPhan = new ArrayList<>();
 
     public Combo(String maSP, String tenSP, double donGia, String dsMa) {
@@ -49,8 +48,7 @@ public class Combo extends SanPham {
         }
     }
 
-    // ===== has-a: liên kết mã thành phần với sản phẩm thật, trả về danh sách mã không liên kết được =====
-    // (k tìm thấy mã, hoặc thành phần cũng là Combo -> bỏ qua để tránh vòng lặp công thức)
+
     public List<String> lienKet(IQuanLy<SanPham> ds) {
         monThanhPhan.clear();
         List<String> loi = new ArrayList<>();
@@ -67,7 +65,6 @@ public class Combo extends SanPham {
 
     public List<SanPham> getMonThanhPhan() { return Collections.unmodifiableList(monThanhPhan); }
 
-    // công thức của combo = tổng công thức các món thành phần (tính lại mỗi lần nên luôn khớp khi sửa công thức món)
     @Override
     public CongThuc getCongThuc() {
         CongThuc tong = new CongThuc();

@@ -89,7 +89,7 @@ public class Main {
             if (cd >= 1 && cd <= 3) {
                 maDangNhap = tk.trim().toUpperCase();
                 capDo = cd;
-                System.out.println("Đăng nhập thành công! Mã: " + maDangNhap + " - Cấp truy cập: " + capDo);
+                System.out.println("Đăng nhập thành công! Mã: " + maDangNhap + " - Quyền hạy truy cập cấp độ: " + capDo);
                 return true;
             }
             System.out.println("Sai tài khoản hoặc mật khẩu (lần " + lan + "/3).");
